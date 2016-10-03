@@ -1,0 +1,113 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR ORGANIZATION
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"POT-Creation-Date: 2016-08-29 14:59+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=cp1252\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: pygettext.py 1.5\n"
+
+
+#: CustomScrews.py:96
+msgid "commandDefinition id is not specified"
+msgstr ""
+
+#: CustomScrews.py:109 CustomScrews.py:124
+msgid "commandControl id is not specified"
+msgstr ""
+
+#: CustomScrews.py:142
+msgid "tobeDeleteObj is not a valid object"
+msgstr ""
+
+#: CustomScrews.py:361
+msgid "Create Screw"
+msgstr ""
+
+#: CustomScrews.py:362
+msgid "Create a Screw by set of different parameters"
+msgstr ""
+
+#: CustomScrews.py:379
+msgid "Input changed event failed: {}"
+msgstr ""
+
+#: CustomScrews.py:416
+msgid "command: {} executed successfully"
+msgstr ""
+
+#: CustomScrews.py:419
+msgid "command executed failed: {}"
+msgstr ""
+
+#: CustomScrews.py:441
+msgid "Screw Name"
+msgstr ""
+
+#: CustomScrews.py:444
+msgid "Head Diameter"
+msgstr ""
+
+#: CustomScrews.py:447
+msgid "Body Diameter"
+msgstr ""
+
+#: CustomScrews.py:450
+msgid "Head Height"
+msgstr ""
+
+#: CustomScrews.py:453
+msgid "Body Length"
+msgstr ""
+
+#: CustomScrews.py:456
+msgid "Hexagon Diameter"
+msgstr ""
+
+#: CustomScrews.py:459
+msgid "Hexagon Height"
+msgstr ""
+
+#: CustomScrews.py:464
+msgid "Fillet Radius"
+msgstr ""
+
+#: CustomScrews.py:467
+msgid "Thread Length"
+msgstr ""
+
+#: CustomScrews.py:470
+msgid "Chamfer Distance"
+msgstr ""
+
+#: CustomScrews.py:484
+msgid "Panel command created successfully"
+msgstr ""
+
+#: CustomScrews.py:487
+msgid "Panel command created failed: {}"
+msgstr ""
+
+#: CustomScrews.py:508
+msgid "The command is successfully added to the create panel in modeling workspace"
+msgstr ""
+
+#: CustomScrews.py:512
+msgid "AddIn Start Failed: {}"
+msgstr ""
+
+#: CustomScrews.py:549
+msgid "Addin succesfully stopped!"
+msgstr ""
+
+#: CustomScrews.py:552
+msgid "AddIn Stop Failed: {}"
+msgstr ""
+
