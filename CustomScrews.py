@@ -18,18 +18,24 @@ panelId = 'SolidCreatePanel'
 
 '''
 define default parameters to initialize the screw
+0.1 = 1mm
 '''
 defaultCylinderheadScrewName= 'Screw'
-defaultCylinderheadDiameter = 0.55
-defaultCylinderheadHeight = 0.3
-defaultHexagonDiameter = 0.25
-defaultHexagonHeight = 0.19
-defaultThreadLength = 0.8
-defaultBodyLength = 1.0
-defaultBodyDiameter = 0.25
-defaultFilletRadius = 0.025
-defaultChamferDistance = 0.025
+defaultCylinderheadDiameter = 0.55 #dk
+defaultCylinderheadHeight = 0.3 #k
+defaultHexagonDiameter = 0.25 #s
+defaultHexagonHeight = 0.19 #t
+defaultThreadLength = 0.8 #b
+defaultBodyLength = 1.0 #bodylength
+defaultBodyDiameter = 0.25 #d
+defaultFilletRadius = 0.025 #f
+defaultChamferDistance = 0.025 #c
 
+# {name,d=k,dk,s,t,b,bodylength}
+#ISO 4762/ DIN912
+presets = [['M2 x8',0.2,0.38,0.15,0.1,0.6,0.8],['M2 x10',0.2,0.38,0.15,0.1,0.6,1.0],['M2 x12',0.2,0.38,0.15,0.1,0.6,1.2],
+           ['M3 x8',0.3,0.568,0.25,0.19,0.6,0.8],['M3 x10',0.3,0.568,0.25,0.19,0.6,1.0],['M3 x12',0.3,0.568,0.25,0.19,0.6,1.2]]
+lastPresetId = 0
 
 # global set of event handlers to keep them referenced for the duration of the command
 handlers = []
@@ -359,7 +365,7 @@ def run(context):
         _ = getLocStrings()
         
         commandName = _('Create Screw')
-        commandDescription = _('Create a Screw by set of different parameters')
+        commandDescription = _('Create a cylinderhead screw by manipulating different parameters or select preset values.')
         commandResources = './resources'
         iconResources = './resources'
         
@@ -373,21 +379,84 @@ def run(context):
                 super().__init__()
             def notify(self, args):
                 try:
+                    eventArgs = adsk.core.InputChangedEventArgs.cast(args)
+                    changedInput = eventArgs.input
+                    
+                    unitsMgr = app.activeProduct.unitsManager
                     command = args.firingEvent.sender
+                    inputs = eventArgs.firingEvent.sender.commandInputs
+                    defaultUnits = unitsMgr.defaultLengthUnits
+                               
+                    global lastPresetId
+                    preset = inputs.itemById('dropdownPresets')
+                    if preset.selectedItem.index > 0 and preset.selectedItem.index <= len(presets) and preset.selectedItem.index != lastPresetId:
+                        inputs.itemById('headDiameter').value = presets[preset.selectedItem.index-1][2]
+                        inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index-1][1]
+                        inputs.itemById('headHeight').value = presets[preset.selectedItem.index-1][1]
+                        inputs.itemById('bodyLength').value = presets[preset.selectedItem.index-1][6]
+                        inputs.itemById('threadLength').value = presets[preset.selectedItem.index-1][5]
+                        inputs.itemById('hexagonDiameter').value = presets[preset.selectedItem.index-1][3]
+                        inputs.itemById('hexagonHeight').value = presets[preset.selectedItem.index-1][4]
+                        #ui.messageBox('input changed '+str(lastPresetId) +' '+str(preset.selectedItem.index)+' '+str(inputs.itemById('bodyDiameter').value))                        
+                    
+                    point = adsk.core.Point3D.create(0, 0, inputs.itemById('headHeight').value)
+                    direction = adsk.core.Vector3D.create(0, 0, 1)
+                    #ui.messageBox(str(inputs.itemById('bodyLength')))
+                    manipulator = inputs.itemById('bodyLength').setManipulator(point, direction)                
+                    
+                    
+                    lastPresetId = preset.selectedItem.index
+                    #ui.messageBox('asasas '+str(inputs.itemById('bodyDiameter').value))
+                    args.isValidResult = True
+                       
+                    
                 except:
                     if ui:
                         ui.messageBox(_('Input changed event failed: {}').format(traceback.format_exc()))
-
+        class CommandExecutePreviewHandler(adsk.core.CommandEventHandler):
+            def __init__(self):
+                super().__init__()
+            def notify(self, args):
+                try:                
+                    eventArgs = adsk.core.CommandEventArgs.cast(args)
+                    unitsMgr = app.activeProduct.unitsManager
+                    # Get the values from the command inputs.
+                    inputs = eventArgs.command.commandInputs
+                    for input in inputs:
+                        if input.id == 'screwName':
+                            screw.screwName = input.value
+                        elif input.id == 'headDiameter':
+                            screw.headDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'bodyDiameter':
+                            screw.bodyDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'headHeight':
+                            screw.headHeight = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'bodyLength':
+                            screw.bodyLength = adsk.core.ValueInput.createByString(input.expression)
+                        elif input.id == 'filletRadius':
+                            screw.filletRadius = adsk.core.ValueInput.createByString(input.expression)
+                        elif input.id == 'threadLength':
+                            screw.threadLength = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'hexagonDiameter':
+                            screw.hexagonDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'hexagonHeight':
+                            screw.hexagonHeight = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'chamferDistance':
+                            screw.chamferDistance = adsk.core.ValueInput.createByString(input.expression)
+                            
+                    screw.buildScrew();
+                    
+                    eventArgs.isValidResult = True
+                except:
+                    if ui:
+                        ui.messageBox(_('execute preview failed: {}').format(traceback.format_exc()))
         class CommandExecuteHandler(adsk.core.CommandEventHandler):
             def __init__(self):
                 super().__init__()
             def notify(self, args):
                 try:
-                    unitsMgr = app.activeProduct.unitsManager
                     command = args.firingEvent.sender
                     inputs = command.commandInputs
-                    defaultUnits = unitsMgr.defaultLengthUnits
-                    
                     
                     for input in inputs:
                         if input.id == 'screwName':
@@ -410,7 +479,7 @@ def run(context):
                             screw.hexagonHeight = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'chamferDistance':
                             screw.chamferDistance = adsk.core.ValueInput.createByString(input.expression)
-                        
+                            
                     screw.buildScrew();
                     args.isValidResult = True
                     ui.messageBox(_('command: {} executed successfully').format(command.parentCommandDefinition.id))
@@ -427,49 +496,68 @@ def run(context):
                     cmd.isRepeatable = False
                     cmd.helpFile = 'help.html'
                     
+                    #define the inputs
+                    inputs = cmd.commandInputs
+                    inputs.addStringValueInput('screwName', _('Screw Name'), defaultCylinderheadScrewName)
+                    
+                    # Create dropdown input with radio style
+                    dropdownInputPreset = inputs.addDropDownCommandInput('dropdownPresets', _('Presets'), adsk.core.DropDownStyles.LabeledIconDropDownStyle)
+                    dropdownItems = dropdownInputPreset.listItems
+                    dropdownItems.add('Default', True, '')                    
+                    for preset in presets:
+                        dropdownItems.add(str(preset[0]), False, '')
+                    
+                    initBodyLength = adsk.core.ValueInput.createByReal(defaultBodyLength)
+                    bodyLength = inputs.addDistanceValueCommandInput('bodyLength', _('Body Length'), initBodyLength)
+                    point = adsk.core.Point3D.create(0, 0, defaultCylinderheadHeight)
+                    direction = adsk.core.Vector3D.create(0, 0, 1)
+                    manipulator = bodyLength.setManipulator(point, direction) 
+
+                    initThreadLength = adsk.core.ValueInput.createByReal(defaultThreadLength)
+                    inputs.addValueInput('threadLength', _('Thread Length'), 'mm', initThreadLength)                    
+                    
+                    # Create group input
+                    groupCmdInput = inputs.addGroupCommandInput('group', _('Advanced'))
+                    groupCmdInput.isExpanded = False
+                    #groupCmdInput.isEnabledCheckBoxDisplayed = True
+                    groupChildInputs = groupCmdInput.children
+
+                    initHeadDiameter = adsk.core.ValueInput.createByReal(defaultCylinderheadDiameter)
+                    groupChildInputs.addValueInput('headDiameter', _('Head Diameter'),'mm', initHeadDiameter)
+
+                    initBodyDiameter = adsk.core.ValueInput.createByReal(defaultBodyDiameter)
+                    groupChildInputs.addValueInput('bodyDiameter', _('Body Diameter'), 'mm', initBodyDiameter)
+
+                    initHeadHeight = adsk.core.ValueInput.createByReal(defaultCylinderheadHeight)
+                    groupChildInputs.addValueInput('headHeight', _('Head Height'), 'mm', initHeadHeight)
+
+                    initHexagonDiameter = adsk.core.ValueInput.createByReal(defaultHexagonDiameter)
+                    groupChildInputs.addValueInput('hexagonDiameter', _('Hexagon Diameter'), 'mm', initHexagonDiameter)
+                    
+                    initHexagonHeight = adsk.core.ValueInput.createByReal(defaultHexagonHeight)
+                    groupChildInputs.addValueInput('hexagonHeight', _('Hexagon Height'), 'mm', initHexagonHeight)
+
+                    initFilletRadius = adsk.core.ValueInput.createByReal(defaultFilletRadius)
+                    groupChildInputs.addValueInput('filletRadius', _('Fillet Radius'), 'mm', initFilletRadius)
+                    
+                    initChamferDistance = adsk.core.ValueInput.createByReal(defaultChamferDistance)
+                    groupChildInputs.addValueInput('chamferDistance', _('Chamfer Distance'), 'mm', initChamferDistance)
+                    
+                    #Connect all Handlers
                     onExecute = CommandExecuteHandler()
                     cmd.execute.add(onExecute)
 
                     onInputChanged = InputChangedHandler()
                     cmd.inputChanged.add(onInputChanged)
+                    
+                    onPreview = CommandExecutePreviewHandler()
+                    cmd.executePreview.add(onPreview)
+                    
                     # keep the handler referenced beyond this function
                     handlers.append(onExecute)
                     handlers.append(onInputChanged)
-
-                    #define the inputs
-                    inputs = cmd.commandInputs
-                    inputs.addStringValueInput('screwName', _('Screw Name'), defaultCylinderheadScrewName)
-
-                    initHeadDiameter = adsk.core.ValueInput.createByReal(defaultCylinderheadDiameter)
-                    inputs.addValueInput('headDiameter', _('Head Diameter'),'mm', initHeadDiameter)
-
-                    initBodyDiameter = adsk.core.ValueInput.createByReal(defaultBodyDiameter)
-                    inputs.addValueInput('bodyDiameter', _('Body Diameter'), 'mm', initBodyDiameter)
-
-                    initHeadHeight = adsk.core.ValueInput.createByReal(defaultCylinderheadHeight)
-                    inputs.addValueInput('headHeight', _('Head Height'), 'mm', initHeadHeight)
-
-                    initBodyLength = adsk.core.ValueInput.createByReal(defaultBodyLength)
-                    inputs.addValueInput('bodyLength', _('Body Length'), 'mm', initBodyLength)
+                    handlers.append(onPreview)
                     
-                    initHexagonDiameter = adsk.core.ValueInput.createByReal(defaultHexagonDiameter)
-                    inputs.addValueInput('hexagonDiameter', _('Hexagon Diameter'), 'mm', initHexagonDiameter)
-                    
-                    initHexagonHeight = adsk.core.ValueInput.createByReal(defaultHexagonHeight)
-                    inputs.addValueInput('hexagonHeight', _('Hexagon Height'), 'mm', initHexagonHeight)
-
-                    #to do the thread length
-
-                    initFilletRadius = adsk.core.ValueInput.createByReal(defaultFilletRadius)
-                    inputs.addValueInput('filletRadius', _('Fillet Radius'), 'mm', initFilletRadius)
-                    
-                    initThreadLength = adsk.core.ValueInput.createByReal(defaultThreadLength)
-                    inputs.addValueInput('threadLength', _('Thread Length'), 'mm', initThreadLength)
-                    
-                    initChamferDistance = adsk.core.ValueInput.createByReal(defaultChamferDistance)
-                    inputs.addValueInput('chamferDistance', _('Chamfer Distance'), 'mm', initChamferDistance)
-                    
-
                     '''
                     selInput = commandInputs_.addSelectionInput(selectionInputId, _('Selection'), _('Select one'))
                     selInput.addSelectionFilter('PlanarFaces')
@@ -481,7 +569,7 @@ def run(context):
                     dropDownItems_.add(_('ListItem 3'), False)
                     '''
                     
-                    ui.messageBox(_('Panel command created successfully'))
+                    #ui.messageBox(_('Panel command created successfully'))
                 except:
                     if ui:
                         ui.messageBox(_('Panel command created failed: {}').format(traceback.format_exc()))
@@ -499,7 +587,7 @@ def run(context):
             commandDefinitionPanel_ = commandDefinitions_.itemById(commandIdOnPanel)
             if not commandDefinitionPanel_:
                 commandDefinitionPanel_ = commandDefinitions_.addButtonDefinition(commandIdOnPanel, commandName, commandDescription, commandResources)
-                commandDefinitionPanel_.toolClipFilename = './resources/medium.png'
+                commandDefinitionPanel_.toolClipFilename = './resources/technical_small.png'
             onCommandCreated = CommandCreatedEventHandlerPanel()
             commandDefinitionPanel_.commandCreated.add(onCommandCreated)
             # keep the handler referenced beyond this function
