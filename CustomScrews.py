@@ -5,6 +5,7 @@
 import adsk.core, adsk.fusion, adsk.cam, traceback, os, gettext
 # math imports
 import math
+import requests
 
 '''
 QAT = Quick Access Toolbar
@@ -33,8 +34,8 @@ defaultChamferDistance = 0.025 #c
 
 # {name,d=k,dk,s,t,b,bodylength}
 #ISO 4762/ DIN912
-presets = [['M2 x8',0.2,0.38,0.15,0.1,0.6,0.8],['M2 x10',0.2,0.38,0.15,0.1,0.6,1.0],['M2 x12',0.2,0.38,0.15,0.1,0.6,1.2],
-           ['M3 x8',0.3,0.568,0.25,0.19,0.6,0.8],['M3 x10',0.3,0.568,0.25,0.19,0.6,1.0],['M3 x12',0.3,0.568,0.25,0.19,0.6,1.2]]
+presets = [[1,'M2 x8',0.2,0.38,0.2,0.15,0.1,0.6,0.8],[2,'M2 x10',0.2,0.38,0.2,0.15,0.1,0.6,1.0],[3,'M2 x12',0.2,0.38,0.2,0.15,0.1,0.6,1.2],
+           [4,'M3 x8',0.3,0.568,0.3,0.25,0.19,0.6,0.8],[5,'M3 x10',0.3,0.568,0.3,0.25,0.19,0.6,1.0],[6,'M3 x12',0.3,0.568,0.3,0.25,0.19,0.6,1.2]]
 lastPresetId = 0
 
 # global set of event handlers to keep them referenced for the duration of the command
@@ -44,6 +45,33 @@ if app:
     ui = app.userInterface
 
 newComp = None
+rowNumber = 0
+
+def addRow(tableInput,inputs,preset):
+    
+    button = inputs.addBoolValueInput(tableInput.id + '_button{}'.format(rowNumber), '', False, './resources/B', False)
+    #button.isFullWidth = True
+    
+    stringInput = inputs.addStringValueInput(tableInput.id + '_stringInput{}'.format(rowNumber), '', str(preset[1]))
+    stringInput.isReadOnly = True
+    
+    bodyLength = inputs.addStringValueInput(tableInput.id + '_bodyLength{}'.format(rowNumber), '', str(preset[8]*10) + " mm")
+    bodyLength.isReadOnly = True
+    
+    row = tableInput.rowCount
+    tableInput.addCommandInput(button, row, 0)
+    tableInput.addCommandInput(stringInput, row, 1)
+    tableInput.addCommandInput(bodyLength, row, 2)
+    
+    global rowNumber
+    rowNumber = rowNumber + 1
+
+def getPresetParameters():
+    try:
+        r = requests.get('http://localhost:5000/screws')
+        return r.json()
+    except:
+        return None
 
 '''
 function createNewComponent
@@ -257,6 +285,18 @@ class Screw:
         extInput.setDistanceExtent(False, distance)
         headExt = extrudes.add(extInput)
 
+        endFaceOfExtrude = headExt.endFaces.item(0)
+        
+        # Create the joint geometry
+        jointGeometry = adsk.fusion.JointGeometry.createByPlanarFace(endFaceOfExtrude, None, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
+
+        # Create the JointOriginInput
+        jointOrigins_ = newComp.jointOrgins
+        jointOriginInput = jointOrigins_.createInput(jointGeometry)
+
+        # Create the JointOrigin
+        jointOrigins_.add(jointOriginInput)
+         
         fc = headExt.faces[0]
         bd = fc.body
         bd.name = self.screwName
@@ -351,7 +391,42 @@ class Screw:
             threadInput.isFullLength = False
             threadInput.threadLength = adsk.core.ValueInput.createByReal(self.threadLength)
             threads.add(threadInput)
-    
+    '''
+    def joinScrew(self,jointOrigin):
+        product = app.activeProduct
+        design = adsk.fusion.Design.cast(product)        
+        
+        rootComp = design.rootComponent        
+        
+        #Get the occurrence of the new component
+        #occ = rootComp.occurrences.item(0)
+        
+        jointOrigins_ = newComp.jointOrgins
+        jointOriginInput = jointOrigins_[0]
+        
+        joints = rootComp.joints
+        jointInput = joints.createInput(jointOriginInput, jointOrigin)
+        
+        # Set the joint input
+        # Set the joint input
+        angle = adsk.core.ValueInput.createByString('90 deg')
+        jointInput.angle = angle
+        offset = adsk.core.ValueInput.createByString('1 cm')
+        jointInput.offset = offset
+        jointInput.isFlipped = True
+        jointInput.setAsRigidJointMotion()
+        
+        #Create the joint
+        joint = joints.add(jointInput)
+		
+        cylindricalMotion = joint.jointMotion
+        rotLimits = cylindricalMotion.rotationLimits
+        rotLimits.isRestValueEnabled = True
+        rotLimits.restValue = 3.14 / 3
+        slideLimits = cylindricalMotion.slideLimits
+        slideLimits.isMinimumValueEnabled = True
+        slideLimits.minimumValue = 0.1
+    '''
 '''
 run - main function of the Add-in
 '''       
@@ -363,6 +438,8 @@ def run(context):
         
         global _
         _ = getLocStrings()
+        
+        global presets
         
         commandName = _('Create Screw')
         commandDescription = _('Create a cylinderhead screw by manipulating different parameters or select preset values.')
@@ -384,19 +461,33 @@ def run(context):
                     
                     unitsMgr = app.activeProduct.unitsManager
                     command = args.firingEvent.sender
+                    cmdInput = args.input
                     inputs = eventArgs.firingEvent.sender.commandInputs
                     defaultUnits = unitsMgr.defaultLengthUnits
+                    
+                    tableInput = inputs.itemById('presetTable')
+                    if tableInput.id + '_button' in cmdInput.id:
+                        preset = str(cmdInput.id).replace(tableInput.id + '_button',"")
+                        #ui.messageBox(preset)
+                        inputs.itemById('screwName').value = presets[int(preset)][1] 
+                        inputs.itemById('bodyDiameter').value = presets[int(preset)][2]                        
+                        inputs.itemById('headDiameter').value = presets[int(preset)][3]
+                        inputs.itemById('headHeight').value = presets[int(preset)][4]
+                        inputs.itemById('hexagonDiameter').value = presets[int(preset)][5]
+                        inputs.itemById('hexagonHeight').value = presets[int(preset)][6]
+                        inputs.itemById('threadLength').value = presets[int(preset)][7]
+                        inputs.itemById('bodyLength').value = presets[int(preset)][8]
                                
                     global lastPresetId
                     preset = inputs.itemById('dropdownPresets')
                     if preset.selectedItem.index > 0 and preset.selectedItem.index <= len(presets) and preset.selectedItem.index != lastPresetId:
-                        inputs.itemById('headDiameter').value = presets[preset.selectedItem.index-1][2]
-                        inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index-1][1]
-                        inputs.itemById('headHeight').value = presets[preset.selectedItem.index-1][1]
-                        inputs.itemById('bodyLength').value = presets[preset.selectedItem.index-1][6]
-                        inputs.itemById('threadLength').value = presets[preset.selectedItem.index-1][5]
-                        inputs.itemById('hexagonDiameter').value = presets[preset.selectedItem.index-1][3]
-                        inputs.itemById('hexagonHeight').value = presets[preset.selectedItem.index-1][4]
+                        inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index-1][2]                        
+                        inputs.itemById('headDiameter').value = presets[preset.selectedItem.index-1][3]
+                        inputs.itemById('headHeight').value = presets[preset.selectedItem.index-1][4]
+                        inputs.itemById('hexagonDiameter').value = presets[preset.selectedItem.index-1][5]
+                        inputs.itemById('hexagonHeight').value = presets[preset.selectedItem.index-1][6]
+                        inputs.itemById('threadLength').value = presets[preset.selectedItem.index-1][7]
+                        inputs.itemById('bodyLength').value = presets[preset.selectedItem.index-1][8]
                         #ui.messageBox('input changed '+str(lastPresetId) +' '+str(preset.selectedItem.index)+' '+str(inputs.itemById('bodyDiameter').value))                        
                     
                     point = adsk.core.Point3D.create(0, 0, inputs.itemById('headHeight').value)
@@ -404,6 +495,9 @@ def run(context):
                     #ui.messageBox(str(inputs.itemById('bodyLength')))
                     manipulator = inputs.itemById('bodyLength').setManipulator(point, direction)                
                     
+                    #if cmdInput.id == inputs.itemById('jointSelection').id:
+                        #ui.messageBox("new selected item")
+                        #ui.messageBox(str(inputs.itemById('jointSelection').selection(0).entity))
                     
                     lastPresetId = preset.selectedItem.index
                     #ui.messageBox('asasas '+str(inputs.itemById('bodyDiameter').value))
@@ -445,7 +539,8 @@ def run(context):
                             screw.chamferDistance = adsk.core.ValueInput.createByString(input.expression)
                             
                     screw.buildScrew();
-                    
+                    #if inputs.itemById('jointSelection').selection(0):
+                    #    screw.joinScrew(inputs.itemById('jointSelection').selection(0).entity)
                     eventArgs.isValidResult = True
                 except:
                     if ui:
@@ -495,17 +590,50 @@ def run(context):
                     cmd = args.command
                     cmd.isRepeatable = False
                     cmd.helpFile = 'help.html'
+                    global presets
+                    global rowNumber        
+                    rowNumber = 0
+        
+                    fetchedPresets = '<b>Notice:</b> Database connection failed! '+str(len(presets))+' offline presets loaded'       
+                    #load Presets
+                    r = getPresetParameters()        
+                    
+                    #ui.messageBox('Get_Request '+str(r['iso_4762']))
+                    if r != None:
+                        presets = r['iso_4762']
+                        fetchedPresets = 'Database connected! Fetched '+str(len(presets))+' online presets'
+                        #ui.messageBox(str(len(r['iso_4762'])))
                     
                     #define the inputs
                     inputs = cmd.commandInputs
                     inputs.addStringValueInput('screwName', _('Screw Name'), defaultCylinderheadScrewName)
+                    
+                    
+                    # Create the table, defining the number of columns and their relative widths.
+                    table = inputs.addTableCommandInput('presetTable', 'Table', 3, '1:4:2')
+                    
+                    # Define some of the table properties.
+                    table.minimumVisibleRows = 3
+                    table.maximumVisibleRows = 4
+                    table.columnSpacing = 10
+                    table.rowSpacing = 2
+                    # transparentBackgroundTablePresentationStyle itemBorderTablePresentationStyle nameValueTablePresentationStyle
+                    table.tablePresentationStyle = adsk.core.TablePresentationStyles.itemBorderTablePresentationStyle
+                    table.hasGrid = False
+                    
+                    for preset in presets:
+                        addRow(table, inputs, preset)
                     
                     # Create dropdown input with radio style
                     dropdownInputPreset = inputs.addDropDownCommandInput('dropdownPresets', _('Presets'), adsk.core.DropDownStyles.LabeledIconDropDownStyle)
                     dropdownItems = dropdownInputPreset.listItems
                     dropdownItems.add('Default', True, '')                    
                     for preset in presets:
-                        dropdownItems.add(str(preset[0]), False, '')
+                        dropdownItems.add(str(preset[1]), False, '')
+                    
+                    selectionInput = inputs.addSelectionInput('jointSelection', 'Select', 'Basic select command input')
+                    selectionInput.setSelectionLimits(0)
+                    
                     
                     initBodyLength = adsk.core.ValueInput.createByReal(defaultBodyLength)
                     bodyLength = inputs.addDistanceValueCommandInput('bodyLength', _('Body Length'), initBodyLength)
@@ -542,6 +670,9 @@ def run(context):
                     
                     initChamferDistance = adsk.core.ValueInput.createByReal(defaultChamferDistance)
                     groupChildInputs.addValueInput('chamferDistance', _('Chamfer Distance'), 'mm', initChamferDistance)
+                    
+                    textBox = inputs.addTextBoxCommandInput('textBox', 'Status', fetchedPresets, 1, True)
+                    textBox.isFullWidth = True
                     
                     #Connect all Handlers
                     onExecute = CommandExecuteHandler()
