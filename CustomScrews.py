@@ -391,8 +391,7 @@ class Screw:
             threadInput.isFullLength = False
             threadInput.threadLength = adsk.core.ValueInput.createByReal(self.threadLength)
             threads.add(threadInput)
-    '''
-    def joinScrew(self,jointOrigin):
+    def joinScrew(self,jointOrigin,joinComp):
         product = app.activeProduct
         design = adsk.fusion.Design.cast(product)        
         
@@ -401,7 +400,7 @@ class Screw:
         #Get the occurrence of the new component
         #occ = rootComp.occurrences.item(0)
         
-        jointOrigins_ = newComp.jointOrgins
+        jointOrigins_ = joinComp.jointOrgins
         jointOriginInput = jointOrigins_[0]
         
         joints = rootComp.joints
@@ -409,24 +408,50 @@ class Screw:
         
         # Set the joint input
         # Set the joint input
-        angle = adsk.core.ValueInput.createByString('90 deg')
+        angle = adsk.core.ValueInput.createByString('0 deg')
         jointInput.angle = angle
-        offset = adsk.core.ValueInput.createByString('1 cm')
+        offset = adsk.core.ValueInput.createByString('0 cm')
         jointInput.offset = offset
         jointInput.isFlipped = True
         jointInput.setAsRigidJointMotion()
         
         #Create the joint
         joint = joints.add(jointInput)
-		
-        cylindricalMotion = joint.jointMotion
-        rotLimits = cylindricalMotion.rotationLimits
-        rotLimits.isRestValueEnabled = True
-        rotLimits.restValue = 3.14 / 3
-        slideLimits = cylindricalMotion.slideLimits
-        slideLimits.isMinimumValueEnabled = True
-        slideLimits.minimumValue = 0.1
-    '''
+    def copy(self):
+        product = app.activeProduct
+        design = adsk.fusion.Design.cast(product)
+        rootComp = design.rootComponent
+        allOccs = rootComp.occurrences
+        newOcc = allOccs.addNewComponent(adsk.core.Matrix3D.create())
+        tmpComp = newOcc.component        
+        
+        body = newComp.bRepBodies.item(0)
+        b = body.copyToComponent(newOcc)
+        #ui.messageBox('fc '+str(body.faces.count))
+        
+        
+        i = 0
+        for face in b.faces:
+            #ui.messageBox('yeyy '+str(i)+'lol '+str(face.centroid.z))
+            if face.centroid.z == self.headHeight:
+                #ui.messageBox('yeyy '+str(i)+'lol '+str(self.headHeight))
+                break
+            i = i + 1
+        face = b.faces.item(i)
+        
+        
+        # Create the joint geometry
+        jointGeometry = adsk.fusion.JointGeometry.createByPlanarFace(face, None, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
+
+        # Create the JointOriginInput
+        jointOrigins_ = tmpComp.jointOrgins
+        jointOriginInput = jointOrigins_.createInput(jointGeometry)
+
+        # Create the JointOrigin
+        jointOrigins_.add(jointOriginInput)
+        return tmpComp
+        
+
 '''
 run - main function of the Add-in
 '''       
@@ -516,42 +541,6 @@ def run(context):
                     unitsMgr = app.activeProduct.unitsManager
                     # Get the values from the command inputs.
                     inputs = eventArgs.command.commandInputs
-                    for input in inputs:
-                        if input.id == 'screwName':
-                            screw.screwName = input.value
-                        elif input.id == 'headDiameter':
-                            screw.headDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
-                        elif input.id == 'bodyDiameter':
-                            screw.bodyDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
-                        elif input.id == 'headHeight':
-                            screw.headHeight = unitsMgr.evaluateExpression(input.expression, "mm")
-                        elif input.id == 'bodyLength':
-                            screw.bodyLength = adsk.core.ValueInput.createByString(input.expression)
-                        elif input.id == 'filletRadius':
-                            screw.filletRadius = adsk.core.ValueInput.createByString(input.expression)
-                        elif input.id == 'threadLength':
-                            screw.threadLength = unitsMgr.evaluateExpression(input.expression, "mm")
-                        elif input.id == 'hexagonDiameter':
-                            screw.hexagonDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
-                        elif input.id == 'hexagonHeight':
-                            screw.hexagonHeight = unitsMgr.evaluateExpression(input.expression, "mm")
-                        elif input.id == 'chamferDistance':
-                            screw.chamferDistance = adsk.core.ValueInput.createByString(input.expression)
-                            
-                    screw.buildScrew();
-                    #if inputs.itemById('jointSelection').selection(0):
-                    #    screw.joinScrew(inputs.itemById('jointSelection').selection(0).entity)
-                    eventArgs.isValidResult = True
-                except:
-                    if ui:
-                        ui.messageBox(_('execute preview failed: {}').format(traceback.format_exc()))
-        class CommandExecuteHandler(adsk.core.CommandEventHandler):
-            def __init__(self):
-                super().__init__()
-            def notify(self, args):
-                try:
-                    command = args.firingEvent.sender
-                    inputs = command.commandInputs
                     
                     for input in inputs:
                         if input.id == 'screwName':
@@ -575,7 +564,48 @@ def run(context):
                         elif input.id == 'chamferDistance':
                             screw.chamferDistance = adsk.core.ValueInput.createByString(input.expression)
                             
-                    screw.buildScrew();
+                    screw.buildScrew()
+                    for j in range(0, inputs.itemById('jointSelection').selectionCount):
+                        joinComp = screw.copy()
+                        screw.joinScrew(inputs.itemById('jointSelection').selection(j).entity,joinComp)
+                        j = j + 1
+                    eventArgs.isValidResult = True
+                except:
+                    if ui:
+                        ui.messageBox(_('execute preview failed: {}').format(traceback.format_exc()))
+        class CommandExecuteHandler(adsk.core.CommandEventHandler):
+            def __init__(self):
+                super().__init__()
+            def notify(self, args):
+                try:
+                    eventArgs = adsk.core.CommandEventArgs.cast(args)
+                    unitsMgr = app.activeProduct.unitsManager
+                    # Get the values from the command inputs.
+                    inputs = eventArgs.command.commandInputs
+                    
+                    for input in inputs:
+                        if input.id == 'screwName':
+                            screw.screwName = input.value
+                        elif input.id == 'headDiameter':
+                            screw.headDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'bodyDiameter':
+                            screw.bodyDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'headHeight':
+                            screw.headHeight = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'bodyLength':
+                            screw.bodyLength = adsk.core.ValueInput.createByString(input.expression)
+                        elif input.id == 'filletRadius':
+                            screw.filletRadius = adsk.core.ValueInput.createByString(input.expression)
+                        elif input.id == 'threadLength':
+                            screw.threadLength = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'hexagonDiameter':
+                            screw.hexagonDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'hexagonHeight':
+                            screw.hexagonHeight = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'chamferDistance':
+                            screw.chamferDistance = adsk.core.ValueInput.createByString(input.expression)
+                            
+                    screw.buildScrew()
                     args.isValidResult = True
                     ui.messageBox(_('command: {} executed successfully').format(command.parentCommandDefinition.id))
                 except:
@@ -630,9 +660,11 @@ def run(context):
                     dropdownItems.add('Default', True, '')                    
                     for preset in presets:
                         dropdownItems.add(str(preset[1]), False, '')
+                    dropdownInputPreset.isVisible = False
                     
                     selectionInput = inputs.addSelectionInput('jointSelection', 'Select', 'Basic select command input')
                     selectionInput.setSelectionLimits(0)
+                    selectionInput.addSelectionFilter('JointOrigins')
                     
                     
                     initBodyLength = adsk.core.ValueInput.createByReal(defaultBodyLength)
