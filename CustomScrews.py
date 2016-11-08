@@ -55,7 +55,12 @@ def addRow(tableInput,inputs,preset):
     stringInput = inputs.addStringValueInput(tableInput.id + '_stringInput{}'.format(rowNumber), '', str(preset[1]))
     stringInput.isReadOnly = True
     
-    bodyLength = inputs.addStringValueInput(tableInput.id + '_bodyLength{}'.format(rowNumber), '', str(preset[8]*10) + " mm")
+    s = ''
+    if preset[8] != None:
+        s = str(preset[8]*10) + " mm"
+    else:
+        s = 'None'
+    bodyLength = inputs.addStringValueInput(tableInput.id + '_bodyLength{}'.format(rowNumber), '', str(s))
     bodyLength.isReadOnly = True
     
     row = tableInput.rowCount
@@ -68,7 +73,7 @@ def addRow(tableInput,inputs,preset):
 
 def getPresetParameters():
     try:
-        r = requests.get('http://localhost:5000/screws')
+        r = requests.get('http://adsk.hk-fs.de') # http://adsk.hk-fs.de localhost:5000
         return r.json()
     except:
         return None
@@ -500,8 +505,12 @@ def run(context):
                         inputs.itemById('headHeight').value = presets[int(preset)][4]
                         inputs.itemById('hexagonDiameter').value = presets[int(preset)][5]
                         inputs.itemById('hexagonHeight').value = presets[int(preset)][6]
-                        inputs.itemById('threadLength').value = presets[int(preset)][7]
-                        inputs.itemById('bodyLength').value = presets[int(preset)][8]
+                        if presets[int(preset)][7] == None or presets[int(preset)][8] == None:
+                            inputs.itemById('threadLength').value = presets[int(preset)][4]*5 - 0.2
+                            inputs.itemById('bodyLength').value = presets[int(preset)][4]*5
+                        else:
+                            inputs.itemById('threadLength').value = presets[int(preset)][7]
+                            inputs.itemById('bodyLength').value = presets[int(preset)][8]
                                
                     global lastPresetId
                     preset = inputs.itemById('dropdownPresets')
