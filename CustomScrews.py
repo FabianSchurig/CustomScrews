@@ -455,6 +455,127 @@ class Screw:
         # Create the JointOrigin
         jointOrigins_.add(jointOriginInput)
         return tmpComp
+    def sketch(self):
+        global newComp
+        newComp = createNewComponent()
+        if newComp is None:
+            ui.messageBox('New component failed to create', 'New Component Failed')
+            return
+
+        # Create a new sketch.
+        sketches = newComp.sketches
+        xyPlane = newComp.xYConstructionPlane
+        xzPlane = newComp.xZConstructionPlane
+        sketch = sketches.add(xzPlane)
+        center = adsk.core.Point3D.create(0, 0, 0)
+        axisLine = sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(0, 1, 0))
+        
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(0, -self.bodyLength , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, -self.bodyLength, 0), adsk.core.Point3D.create( self.bodyDiameter/2 - self.chamferDistance , -self.bodyLength , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.bodyDiameter/2 - self.chamferDistance , -self.bodyLength , 0), adsk.core.Point3D.create( self.bodyDiameter/2, -self.bodyLength + self.chamferDistance , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.bodyDiameter/2, -self.bodyLength + self.chamferDistance , 0), adsk.core.Point3D.create( self.bodyDiameter/2, 0 , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.bodyDiameter/2, 0 , 0), adsk.core.Point3D.create( self.headDiameter/2, 0 , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.headDiameter/2, 0 , 0), adsk.core.Point3D.create( self.headDiameter/2, self.headHeight , 0))
+        
+        x = (self.hexagonDiameter/math.cos(math.radians(30)) - self.hexagonDiameter)/2
+                
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.headDiameter/2, self.headHeight , 0), adsk.core.Point3D.create( self.hexagonDiameter/2 + x, self.headHeight , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.hexagonDiameter/2 + x, self.headHeight , 0), adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - x , 0))
+        
+        #Ankathete * tan(a) = Gegenkathete
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - x , 0), adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - self.hexagonHeight , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - self.hexagonHeight , 0), adsk.core.Point3D.create( 0 , (self.headHeight - self.hexagonHeight + x) - (self.hexagonDiameter/2)*math.tan(math.radians(31)) , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( 0 , (self.headHeight - self.hexagonHeight + x) - (self.hexagonDiameter/2)*math.tan(math.radians(31)) , 0), adsk.core.Point3D.create(0, 0, 0))
+        
+        revolveProfile = sketch.profiles.item(0)
+        revolves = newComp.features.revolveFeatures
+        revInput = revolves.createInput(revolveProfile, axisLine, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+        
+        angle = adsk.core.ValueInput.createByReal(math.pi*2)
+        revInput.setAngleExtent(False, angle)
+        
+        extRevolve = revolves.add(revInput)
+        
+        # Get construction planes
+        planes = newComp.constructionPlanes
+        
+        # Create construction plane input
+        planeInput = planes.createInput()
+        
+        # Add construction plane by offset
+        offsetValue = adsk.core.ValueInput.createByReal(-self.headHeight)
+        planeInput.setByOffset(xyPlane, offsetValue)
+        planeOne = planes.add(planeInput)
+        
+        #cut the hexagon
+        sketchHex = sketches.add(planeOne)
+        vertices = []
+        hexagonOuterDiameter = self.hexagonDiameter/math.sqrt(3)
+        for i in range(0, 6):
+            vertex = adsk.core.Point3D.create(center.x + (hexagonOuterDiameter) * math.cos(math.pi * i / 3), center.y + (hexagonOuterDiameter) * math.sin(math.pi * i / 3),0)
+            vertices.append(vertex)
+
+        for i in range(0, 6):
+            sketchHex.sketchCurves.sketchLines.addByTwoPoints(vertices[(i+1) %6], vertices[i])
+
+        extrudes = newComp.features.extrudeFeatures
+        prof = sketchHex.profiles[0]
+        extInput = extrudes.createInput(prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+
+        distance = adsk.core.ValueInput.createByReal(self.hexagonHeight)
+        extInput.setDistanceExtent(False, distance)
+        hexExt = extrudes.add(extInput)
+
+        fc = hexExt.faces[0]
+        bd = fc.body
+        bd.name = self.screwName
+        
+        edgeCol = adsk.core.ObjectCollection.create()
+        facesLoop = extRevolve.faces
+        for face in facesLoop:
+            loops = face.loops
+            edgeLoop = None
+            for edgeLoop in loops:
+                if(len(edgeLoop.edges) == 1 and (edgeLoop.boundingBox.maxPoint.z == -self.headHeight or edgeLoop.boundingBox.maxPoint.z == 0.0)):
+                    edgeCol.add(edgeLoop.edges[0])
+                    #ui.messageBox(str(edgeLoop.boundingBox.maxPoint.z))
+                    break
+        #ui.messageBox(str(len(edgeCol)))
+        
+        filletFeats = newComp.features.filletFeatures
+        filletInput = filletFeats.createInput()
+        filletInput.addConstantRadiusEdgeSet(edgeCol, self.filletRadius, True)
+        filletFeats.add(filletInput)
+        
+
+        body = extRevolve
+        
+        cntFaces = 0
+        for sF in body.faces:
+            #ui.messageBox(str(sF.boundingBox.maxPoint.z)+ ' a ' +str(sF.boundingBox.minPoint.z) + ' a ' + str(cntFaces))
+            if(sF.boundingBox.maxPoint.z == (+self.bodyLength - self.chamferDistance)):
+                #ui.messageBox(str(sF.boundingBox.maxPoint.z)+ ' a ' +str(sF.boundingBox.minPoint.z) + ' a ' + str(cntFaces))
+                break
+            cntFaces = cntFaces + 1
+        
+        #create thread
+        sideFace = body.faces.item(cntFaces)
+        #ui.messageBox(str(sideFace.boundingBox.maxPoint.z)+ ' a ' +str(sideFace.boundingBox.minPoint.z))
+        
+        threads = newComp.features.threadFeatures
+        threadDataQuery = threads.threadDataQuery
+        defaultThreadType = threadDataQuery.defaultMetricThreadType
+        recommendData = threadDataQuery.recommendThreadData(self.bodyDiameter, False, defaultThreadType)
+        if recommendData[0] :
+            threadInfo = threads.createThreadInfo(False, defaultThreadType, recommendData[1], recommendData[2])
+            faces = adsk.core.ObjectCollection.create()
+            faces.add(sideFace)
+            threadInput = threads.createInput(faces, threadInfo)
+            threadInput.isFullLength = False
+            threadInput.threadLength = adsk.core.ValueInput.createByReal(self.threadLength)
+            threads.add(threadInput)
+        
+        return
         
 
 '''
@@ -561,7 +682,7 @@ def run(context):
                         elif input.id == 'headHeight':
                             screw.headHeight = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'bodyLength':
-                            screw.bodyLength = adsk.core.ValueInput.createByString(input.expression)
+                            screw.bodyLength = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'filletRadius':
                             screw.filletRadius = adsk.core.ValueInput.createByString(input.expression)
                         elif input.id == 'threadLength':
@@ -571,14 +692,14 @@ def run(context):
                         elif input.id == 'hexagonHeight':
                             screw.hexagonHeight = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'chamferDistance':
-                            screw.chamferDistance = adsk.core.ValueInput.createByString(input.expression)
-                            
-                    screw.buildScrew()
-                    for j in range(0, inputs.itemById('jointSelection').selectionCount):
-                        joinComp = screw.copy()
-                        screw.joinScrew(inputs.itemById('jointSelection').selection(j).entity,joinComp)
-                        j = j + 1
-                    eventArgs.isValidResult = True
+                            screw.chamferDistance = unitsMgr.evaluateExpression(input.expression, "mm")
+                    screw.sketch()
+#                    screw.buildScrew()
+#                    for j in range(0, inputs.itemById('jointSelection').selectionCount):
+#                        joinComp = screw.copy()
+#                        screw.joinScrew(inputs.itemById('jointSelection').selection(j).entity,joinComp)
+#                        j = j + 1
+#                    eventArgs.isValidResult = True
                 except:
                     if ui:
                         ui.messageBox(_('execute preview failed: {}').format(traceback.format_exc()))
@@ -602,7 +723,7 @@ def run(context):
                         elif input.id == 'headHeight':
                             screw.headHeight = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'bodyLength':
-                            screw.bodyLength = adsk.core.ValueInput.createByString(input.expression)
+                            screw.bodyLength = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'filletRadius':
                             screw.filletRadius = adsk.core.ValueInput.createByString(input.expression)
                         elif input.id == 'threadLength':
@@ -612,9 +733,9 @@ def run(context):
                         elif input.id == 'hexagonHeight':
                             screw.hexagonHeight = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'chamferDistance':
-                            screw.chamferDistance = adsk.core.ValueInput.createByString(input.expression)
+                            screw.chamferDistance = unitsMgr.evaluateExpression(input.expression, "mm")
                             
-                    screw.buildScrew()
+                    screw.sketch()
                     args.isValidResult = True
                     ui.messageBox(_('command: {} executed successfully').format(command.parentCommandDefinition.id))
                 except:
@@ -671,7 +792,7 @@ def run(context):
                         dropdownItems.add(str(preset[1]), False, '')
                     dropdownInputPreset.isVisible = False
                     
-                    selectionInput = inputs.addSelectionInput('jointSelection', 'Select', 'Basic select command input')
+                    selectionInput = inputs.addSelectionInput('jointSelection', 'Select Joins', 'Select origins to join')
                     selectionInput.setSelectionLimits(0)
                     selectionInput.addSelectionFilter('JointOrigins')
                     
@@ -766,10 +887,11 @@ def run(context):
             handlers.append(onCommandCreated)
             toolbarControlPanel_ = toolbarControlsPanel_.addCommand(commandDefinitionPanel_)
             toolbarControlPanel_.isVisible = True
-            ui.messageBox(_('The command is successfully added to the create panel in modeling workspace'))
+            ui.messageBox(_('The command "Create Screw" is successfully added to the create panel in modeling workspace'))
 
     except:
-        if ui:
+        return
+        if ui and False:
             ui.messageBox(_('AddIn Start Failed: {}').format(traceback.format_exc()))
             
             
