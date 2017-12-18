@@ -927,8 +927,6 @@ def run(context):
 
     except:
         return
-        if ui and False:
-            ui.messageBox(_('AddIn Start Failed: {}').format(traceback.format_exc()))
 
 
 
