@@ -5,6 +5,10 @@
 import adsk.core, adsk.fusion, adsk.cam, traceback, os, gettext
 # math imports
 import math
+import inspect
+import sys
+
+sys.path.append("./Modules")
 import requests
 
 '''
@@ -43,18 +47,18 @@ handlers = []
 app = adsk.core.Application.get()
 if app:
     ui = app.userInterface
-
+    
 newComp = None
 rowNumber = 0
 
 def addRow(tableInput,inputs,preset):
-    
+
     button = inputs.addBoolValueInput(tableInput.id + '_button{}'.format(rowNumber), '', False, './resources/B', False)
     #button.isFullWidth = True
-    
+
     stringInput = inputs.addStringValueInput(tableInput.id + '_stringInput{}'.format(rowNumber), '', str(preset[1]))
     stringInput.isReadOnly = True
-    
+
     s = ''
     if preset[8] != None:
         s = str(preset[8]*10) + " mm"
@@ -62,12 +66,12 @@ def addRow(tableInput,inputs,preset):
         s = 'None'
     bodyLength = inputs.addStringValueInput(tableInput.id + '_bodyLength{}'.format(rowNumber), '', str(s))
     bodyLength.isReadOnly = True
-    
+
     row = tableInput.rowCount
     tableInput.addCommandInput(button, row, 0)
     tableInput.addCommandInput(stringInput, row, 1)
     tableInput.addCommandInput(bodyLength, row, 2)
-    
+
     global rowNumber
     rowNumber = rowNumber + 1
 
@@ -100,7 +104,7 @@ returns the users language
 _ = None
 def getUserLanguage():
     app = adsk.core.Application.get()
-    
+
     return {
         adsk.core.UserLanguages.ChinesePRCLanguage: "zh-CN",
         adsk.core.UserLanguages.ChineseTaiwanLanguage: "zh-TW",
@@ -123,7 +127,7 @@ Get loc string by language
 '''
 def getLocStrings():
     currentDir = os.path.dirname(os.path.realpath(__file__))
-    return gettext.translation('resource', currentDir, [getUserLanguage(), "en-US"]).gettext 
+    return gettext.translation('resource', currentDir, [getUserLanguage(), "en-US"]).gettext
 
 '''
 
@@ -216,28 +220,28 @@ class Screw:
         return self._bodyDiameter
     @bodyDiameter.setter
     def bodyDiameter(self, value):
-        self._bodyDiameter = value 
+        self._bodyDiameter = value
 
     @property
     def headHeight(self):
         return self._headHeight
     @headHeight.setter
     def headHeight(self, value):
-        self._headHeight = value 
+        self._headHeight = value
 
     @property
     def bodyLength(self):
         return self._bodyLength
     @bodyLength.setter
     def bodyLength(self, value):
-        self._bodyLength = value   
+        self._bodyLength = value
 
     @property
     def threadLength(self):
         return self._threadLength
     @threadLength.setter
     def threadLength(self, value):
-        self._threadLength = value  
+        self._threadLength = value
 
     @property
     def hexagonDiameter(self):
@@ -252,14 +256,14 @@ class Screw:
     @hexagonHeight.setter
     def hexagonHeight(self, value):
         self._hexagonHeight = value
-        
+
     @property
     def filletRadius(self):
         return self._filletRadius
     @filletRadius.setter
     def filletRadius(self, value):
         self._filletRadius = value
-    
+
     @property
     def chamferDistance(self):
         return self._chamferDistance
@@ -291,7 +295,7 @@ class Screw:
         headExt = extrudes.add(extInput)
 
         endFaceOfExtrude = headExt.endFaces.item(0)
-        
+
         # Create the joint geometry
         jointGeometry = adsk.fusion.JointGeometry.createByPlanarFace(endFaceOfExtrude, None, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
 
@@ -301,22 +305,22 @@ class Screw:
 
         # Create the JointOrigin
         jointOrigins_.add(jointOriginInput)
-         
+
         fc = headExt.faces[0]
         bd = fc.body
         bd.name = self.screwName
-        
+
         # Get construction planes
         planes = newComp.constructionPlanes
-        
+
         # Create construction plane input
         planeInput = planes.createInput()
-        
+
         # Add construction plane by offset
         offsetValue = adsk.core.ValueInput.createByReal(self.headHeight)
         planeInput.setByOffset(xyPlane, offsetValue)
         planeOne = planes.add(planeInput)
-        
+
         #cut the hexagon
         sketchHex = sketches.add(xyPlane)
         vertices = []
@@ -361,7 +365,7 @@ class Screw:
         chamferInput = chamferFeats.createInput(edgeCol, True)
         chamferInput.setToEqualDistance(self.chamferDistance)
         chamferFeats.add(chamferInput)
-        
+
         # create fillet
         edgeCol.clear()
         facesLoop = headExt.faces
@@ -372,16 +376,17 @@ class Screw:
                 if(len(edgeLoop.edges) == 1):
                     edgeCol.add(edgeLoop.edges[0])
                     break
-        
+
         #edgeCol.add(headExt.faces[0].loops[0].edges[0])
         #edgeCol.add(headExt.faces[0].loops[1].edges[0])
         #edgeCol.add(headExt.endFaces[0].loops[0].edges[0])
-        
-        filletFeats = newComp.features.filletFeatures
-        filletInput = filletFeats.createInput()
-        filletInput.addConstantRadiusEdgeSet(edgeCol, self.filletRadius, True)
-        filletFeats.add(filletInput)
-        
+
+        if self.filletRadius > 0:
+            filletFeats = newComp.features.filletFeatures
+            filletInput = filletFeats.createInput()
+            filletInput.addConstantRadiusEdgeSet(edgeCol, adsk.core.ValueInput.createByReal(self.filletRadius), True)
+            filletFeats.add(filletInput)
+
         #create thread
         sideFace = bodyExt.sideFaces[0]
         threads = newComp.features.threadFeatures
@@ -398,19 +403,19 @@ class Screw:
             threads.add(threadInput)
     def joinScrew(self,jointOrigin,joinComp):
         product = app.activeProduct
-        design = adsk.fusion.Design.cast(product)        
-        
-        rootComp = design.rootComponent        
-        
+        design = adsk.fusion.Design.cast(product)
+
+        rootComp = design.rootComponent
+
         #Get the occurrence of the new component
         #occ = rootComp.occurrences.item(0)
-        
+
         jointOrigins_ = joinComp.jointOrgins
         jointOriginInput = jointOrigins_[0]
-        
+
         joints = rootComp.joints
         jointInput = joints.createInput(jointOriginInput, jointOrigin)
-        
+
         # Set the joint input
         # Set the joint input
         angle = adsk.core.ValueInput.createByString('0 deg')
@@ -419,7 +424,7 @@ class Screw:
         jointInput.offset = offset
         jointInput.isFlipped = True
         jointInput.setAsRigidJointMotion()
-        
+
         #Create the joint
         joint = joints.add(jointInput)
     def copy(self):
@@ -428,13 +433,13 @@ class Screw:
         rootComp = design.rootComponent
         allOccs = rootComp.occurrences
         newOcc = allOccs.addNewComponent(adsk.core.Matrix3D.create())
-        tmpComp = newOcc.component        
-        
+        tmpComp = newOcc.component
+
         body = newComp.bRepBodies.item(0)
         b = body.copyToComponent(newOcc)
         #ui.messageBox('fc '+str(body.faces.count))
-        
-        
+
+
         i = 0
         for face in b.faces:
             #ui.messageBox('yeyy '+str(i)+'lol '+str(face.centroid.z))
@@ -443,8 +448,8 @@ class Screw:
                 break
             i = i + 1
         face = b.faces.item(i)
-        
-        
+
+
         # Create the joint geometry
         jointGeometry = adsk.fusion.JointGeometry.createByPlanarFace(face, None, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
 
@@ -456,6 +461,33 @@ class Screw:
         jointOrigins_.add(jointOriginInput)
         return tmpComp
     def sketch(self):
+        isValid = True
+        errStr = ""
+        if self.bodyDiameter/2 < self.chamferDistance or self.chamferDistance <= 0:
+            isValid = False
+            errStr += "chamfer distance \n"
+        if self.filletRadius < 0 or self.filletRadius >= (self.headDiameter - self.bodyDiameter)/4:
+            isValid = False
+            errStr += "fillet radius \n"
+        if self.hexagonHeight >= self.headHeight:
+            isValid = False
+            errStr += "hexagon height \n"
+        if self.bodyDiameter >= self.headDiameter:
+            isValid = False
+            errStr += "body diameter \n"
+        if self.hexagonDiameter*2/math.sqrt(3) >= self.headDiameter:
+            isValid = False
+            errStr += "hexagon diameter \n"
+        if self.threadLength > (self.bodyLength - self.chamferDistance - self.filletRadius) or self.threadLength <= 0:
+            isValid = False
+            errStr += "thread length \n"
+        if self.headDiameter < (self.bodyDiameter + 4*self.filletRadius) or math.isclose(self.headDiameter, (self.bodyDiameter + 4*self.filletRadius), rel_tol=1e-09, abs_tol=0.0):
+            isValid = False  
+            errStr += "head diameter \n"
+        if not isValid:
+            ui.messageBox('wrong input values \n'+errStr,'Component Failed')
+            return
+        
         global newComp
         newComp = createNewComponent()
         if newComp is None:
@@ -469,44 +501,44 @@ class Screw:
         sketch = sketches.add(xzPlane)
         center = adsk.core.Point3D.create(0, 0, 0)
         axisLine = sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(0, 1, 0))
-        
+
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(0, -self.bodyLength , 0))
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, -self.bodyLength, 0), adsk.core.Point3D.create( self.bodyDiameter/2 - self.chamferDistance , -self.bodyLength , 0))
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.bodyDiameter/2 - self.chamferDistance , -self.bodyLength , 0), adsk.core.Point3D.create( self.bodyDiameter/2, -self.bodyLength + self.chamferDistance , 0))
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.bodyDiameter/2, -self.bodyLength + self.chamferDistance , 0), adsk.core.Point3D.create( self.bodyDiameter/2, 0 , 0))
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.bodyDiameter/2, 0 , 0), adsk.core.Point3D.create( self.headDiameter/2, 0 , 0))
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.headDiameter/2, 0 , 0), adsk.core.Point3D.create( self.headDiameter/2, self.headHeight , 0))
-        
+
         x = (self.hexagonDiameter/math.cos(math.radians(30)) - self.hexagonDiameter)/2
-                
+
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.headDiameter/2, self.headHeight , 0), adsk.core.Point3D.create( self.hexagonDiameter/2 + x, self.headHeight , 0))
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.hexagonDiameter/2 + x, self.headHeight , 0), adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - x , 0))
-        
+
         #Ankathete * tan(a) = Gegenkathete
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - x , 0), adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - self.hexagonHeight , 0))
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - self.hexagonHeight , 0), adsk.core.Point3D.create( 0 , (self.headHeight - self.hexagonHeight + x) - (self.hexagonDiameter/2)*math.tan(math.radians(31)) , 0))
         sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( 0 , (self.headHeight - self.hexagonHeight + x) - (self.hexagonDiameter/2)*math.tan(math.radians(31)) , 0), adsk.core.Point3D.create(0, 0, 0))
-        
+
         revolveProfile = sketch.profiles.item(0)
         revolves = newComp.features.revolveFeatures
         revInput = revolves.createInput(revolveProfile, axisLine, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-        
+
         angle = adsk.core.ValueInput.createByReal(math.pi*2)
         revInput.setAngleExtent(False, angle)
-        
+
         extRevolve = revolves.add(revInput)
-        
+
         # Get construction planes
         planes = newComp.constructionPlanes
-        
+
         # Create construction plane input
         planeInput = planes.createInput()
-        
+
         # Add construction plane by offset
         offsetValue = adsk.core.ValueInput.createByReal(-self.headHeight)
         planeInput.setByOffset(xyPlane, offsetValue)
         planeOne = planes.add(planeInput)
-        
+
         #cut the hexagon
         sketchHex = sketches.add(planeOne)
         vertices = []
@@ -529,7 +561,7 @@ class Screw:
         fc = hexExt.faces[0]
         bd = fc.body
         bd.name = self.screwName
-        
+
         edgeCol = adsk.core.ObjectCollection.create()
         facesLoop = extRevolve.faces
         for face in facesLoop:
@@ -541,27 +573,31 @@ class Screw:
                     #ui.messageBox(str(edgeLoop.boundingBox.maxPoint.z))
                     break
         #ui.messageBox(str(len(edgeCol)))
-        
-        filletFeats = newComp.features.filletFeatures
-        filletInput = filletFeats.createInput()
-        filletInput.addConstantRadiusEdgeSet(edgeCol, self.filletRadius, True)
-        filletFeats.add(filletInput)
-        
+
+        if self.filletRadius > 0:
+            filletFeats = newComp.features.filletFeatures
+            filletInput = filletFeats.createInput()
+            filletInput.addConstantRadiusEdgeSet(edgeCol, adsk.core.ValueInput.createByReal(self.filletRadius), True)
+            filletFeats.add(filletInput)
+
 
         body = extRevolve
-        
+
         cntFaces = 0
+        #a = ""
         for sF in body.faces:
+            #a += str(sF.boundingBox.maxPoint.z) + " " + str(sF.boundingBox.minPoint.z) + " math " + str(math.isclose(sF.boundingBox.maxPoint.z,self.bodyLength - self.chamferDistance, abs_tol=1e-09)) +  "cnt: " + str(cntFaces) + "\n"
             #ui.messageBox(str(sF.boundingBox.maxPoint.z)+ ' a ' +str(sF.boundingBox.minPoint.z) + ' a ' + str(cntFaces))
-            if(sF.boundingBox.maxPoint.z == (+self.bodyLength - self.chamferDistance)):
+            if math.isclose(sF.boundingBox.maxPoint.z,self.bodyLength - self.chamferDistance, abs_tol=1e-09) and not math.isclose(sF.boundingBox.minPoint.z, self.bodyLength):
                 #ui.messageBox(str(sF.boundingBox.maxPoint.z)+ ' a ' +str(sF.boundingBox.minPoint.z) + ' a ' + str(cntFaces))
                 break
             cntFaces = cntFaces + 1
-        
+        #ui.messageBox(a,"Output Faces")
+
         #create thread
         sideFace = body.faces.item(cntFaces)
         #ui.messageBox(str(sideFace.boundingBox.maxPoint.z)+ ' a ' +str(sideFace.boundingBox.minPoint.z))
-        
+
         threads = newComp.features.threadFeatures
         threadDataQuery = threads.threadDataQuery
         defaultThreadType = threadDataQuery.defaultMetricThreadType
@@ -574,29 +610,29 @@ class Screw:
             threadInput.isFullLength = False
             threadInput.threadLength = adsk.core.ValueInput.createByReal(self.threadLength)
             threads.add(threadInput)
-        
+
         return
-        
+
 
 '''
 run - main function of the Add-in
-'''       
+'''
 def run(context):
     ui = None
     try:
         app = adsk.core.Application.get()
         ui = app.userInterface
-        
+
         global _
         _ = getLocStrings()
-        
+
         global presets
-        
+
         commandName = _('Create Screw')
         commandDescription = _('Create a cylinderhead screw by manipulating different parameters or select preset values.')
         commandResources = './resources'
         iconResources = './resources'
-        
+
         screw = Screw()
 
         '''
@@ -609,19 +645,19 @@ def run(context):
                 try:
                     eventArgs = adsk.core.InputChangedEventArgs.cast(args)
                     changedInput = eventArgs.input
-                    
+
                     unitsMgr = app.activeProduct.unitsManager
                     command = args.firingEvent.sender
                     cmdInput = args.input
                     inputs = eventArgs.firingEvent.sender.commandInputs
                     defaultUnits = unitsMgr.defaultLengthUnits
-                    
+
                     tableInput = inputs.itemById('presetTable')
                     if tableInput.id + '_button' in cmdInput.id:
                         preset = str(cmdInput.id).replace(tableInput.id + '_button',"")
                         #ui.messageBox(preset)
-                        inputs.itemById('screwName').value = presets[int(preset)][1] 
-                        inputs.itemById('bodyDiameter').value = presets[int(preset)][2]                        
+                        inputs.itemById('screwName').value = presets[int(preset)][1]
+                        inputs.itemById('bodyDiameter').value = presets[int(preset)][2]
                         inputs.itemById('headDiameter').value = presets[int(preset)][3]
                         inputs.itemById('headHeight').value = presets[int(preset)][4]
                         inputs.itemById('hexagonDiameter').value = presets[int(preset)][5]
@@ -632,33 +668,33 @@ def run(context):
                         else:
                             inputs.itemById('threadLength').value = presets[int(preset)][7]
                             inputs.itemById('bodyLength').value = presets[int(preset)][8]
-                               
+
                     global lastPresetId
                     preset = inputs.itemById('dropdownPresets')
                     if preset.selectedItem.index > 0 and preset.selectedItem.index <= len(presets) and preset.selectedItem.index != lastPresetId:
-                        inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index-1][2]                        
+                        inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index-1][2]
                         inputs.itemById('headDiameter').value = presets[preset.selectedItem.index-1][3]
                         inputs.itemById('headHeight').value = presets[preset.selectedItem.index-1][4]
                         inputs.itemById('hexagonDiameter').value = presets[preset.selectedItem.index-1][5]
                         inputs.itemById('hexagonHeight').value = presets[preset.selectedItem.index-1][6]
                         inputs.itemById('threadLength').value = presets[preset.selectedItem.index-1][7]
                         inputs.itemById('bodyLength').value = presets[preset.selectedItem.index-1][8]
-                        #ui.messageBox('input changed '+str(lastPresetId) +' '+str(preset.selectedItem.index)+' '+str(inputs.itemById('bodyDiameter').value))                        
-                    
+                        #ui.messageBox('input changed '+str(lastPresetId) +' '+str(preset.selectedItem.index)+' '+str(inputs.itemById('bodyDiameter').value))
+
                     point = adsk.core.Point3D.create(0, 0, inputs.itemById('headHeight').value)
                     direction = adsk.core.Vector3D.create(0, 0, 1)
                     #ui.messageBox(str(inputs.itemById('bodyLength')))
-                    manipulator = inputs.itemById('bodyLength').setManipulator(point, direction)                
-                    
+                    manipulator = inputs.itemById('bodyLength').setManipulator(point, direction)
+
                     #if cmdInput.id == inputs.itemById('jointSelection').id:
                         #ui.messageBox("new selected item")
                         #ui.messageBox(str(inputs.itemById('jointSelection').selection(0).entity))
-                    
+
                     lastPresetId = preset.selectedItem.index
                     #ui.messageBox('asasas '+str(inputs.itemById('bodyDiameter').value))
                     args.isValidResult = True
-                       
-                    
+
+
                 except:
                     if ui:
                         ui.messageBox(_('Input changed event failed: {}').format(traceback.format_exc()))
@@ -666,12 +702,12 @@ def run(context):
             def __init__(self):
                 super().__init__()
             def notify(self, args):
-                try:                
+                try:
                     eventArgs = adsk.core.CommandEventArgs.cast(args)
                     unitsMgr = app.activeProduct.unitsManager
                     # Get the values from the command inputs.
                     inputs = eventArgs.command.commandInputs
-                    
+
                     for input in inputs:
                         if input.id == 'screwName':
                             screw.screwName = input.value
@@ -684,7 +720,7 @@ def run(context):
                         elif input.id == 'bodyLength':
                             screw.bodyLength = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'filletRadius':
-                            screw.filletRadius = adsk.core.ValueInput.createByString(input.expression)
+                            screw.filletRadius = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'threadLength':
                             screw.threadLength = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'hexagonDiameter':
@@ -712,7 +748,7 @@ def run(context):
                     unitsMgr = app.activeProduct.unitsManager
                     # Get the values from the command inputs.
                     inputs = eventArgs.command.commandInputs
-                    
+
                     for input in inputs:
                         if input.id == 'screwName':
                             screw.screwName = input.value
@@ -725,7 +761,7 @@ def run(context):
                         elif input.id == 'bodyLength':
                             screw.bodyLength = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'filletRadius':
-                            screw.filletRadius = adsk.core.ValueInput.createByString(input.expression)
+                            screw.filletRadius = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'threadLength':
                             screw.threadLength = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'hexagonDiameter':
@@ -734,7 +770,7 @@ def run(context):
                             screw.hexagonHeight = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'chamferDistance':
                             screw.chamferDistance = unitsMgr.evaluateExpression(input.expression, "mm")
-                            
+
                     screw.sketch()
                     args.isValidResult = True
                     ui.messageBox(_('command: {} executed successfully').format(command.parentCommandDefinition.id))
@@ -744,34 +780,34 @@ def run(context):
 
         class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
             def __init__(self):
-                super().__init__() 
+                super().__init__()
             def notify(self, args):
                 try:
                     cmd = args.command
                     cmd.isRepeatable = False
                     cmd.helpFile = 'help.html'
                     global presets
-                    global rowNumber        
+                    global rowNumber
                     rowNumber = 0
-        
-                    fetchedPresets = '<b>Notice:</b> Database connection failed! '+str(len(presets))+' offline presets loaded'       
+
+                    fetchedPresets = '<b>Notice:</b> Database connection failed! '+str(len(presets))+' offline presets loaded'
                     #load Presets
-                    r = getPresetParameters()        
-                    
+                    r = getPresetParameters()
+
                     #ui.messageBox('Get_Request '+str(r['iso_4762']))
                     if r != None:
                         presets = r['iso_4762']
                         fetchedPresets = 'Database connected! Fetched '+str(len(presets))+' online presets'
                         #ui.messageBox(str(len(r['iso_4762'])))
-                    
+
                     #define the inputs
                     inputs = cmd.commandInputs
                     inputs.addStringValueInput('screwName', _('Screw Name'), defaultCylinderheadScrewName)
-                    
-                    
+
+
                     # Create the table, defining the number of columns and their relative widths.
                     table = inputs.addTableCommandInput('presetTable', 'Table', 3, '1:4:2')
-                    
+
                     # Define some of the table properties.
                     table.minimumVisibleRows = 3
                     table.maximumVisibleRows = 4
@@ -780,32 +816,32 @@ def run(context):
                     # transparentBackgroundTablePresentationStyle itemBorderTablePresentationStyle nameValueTablePresentationStyle
                     table.tablePresentationStyle = adsk.core.TablePresentationStyles.itemBorderTablePresentationStyle
                     table.hasGrid = False
-                    
+
                     for preset in presets:
                         addRow(table, inputs, preset)
-                    
+
                     # Create dropdown input with radio style
                     dropdownInputPreset = inputs.addDropDownCommandInput('dropdownPresets', _('Presets'), adsk.core.DropDownStyles.LabeledIconDropDownStyle)
                     dropdownItems = dropdownInputPreset.listItems
-                    dropdownItems.add('Default', True, '')                    
+                    dropdownItems.add('Default', True, '')
                     for preset in presets:
                         dropdownItems.add(str(preset[1]), False, '')
                     dropdownInputPreset.isVisible = False
-                    
+
                     selectionInput = inputs.addSelectionInput('jointSelection', 'Select Joins', 'Select origins to join')
                     selectionInput.setSelectionLimits(0)
                     selectionInput.addSelectionFilter('JointOrigins')
-                    
-                    
+
+
                     initBodyLength = adsk.core.ValueInput.createByReal(defaultBodyLength)
                     bodyLength = inputs.addDistanceValueCommandInput('bodyLength', _('Body Length'), initBodyLength)
                     point = adsk.core.Point3D.create(0, 0, defaultCylinderheadHeight)
                     direction = adsk.core.Vector3D.create(0, 0, 1)
-                    manipulator = bodyLength.setManipulator(point, direction) 
+                    manipulator = bodyLength.setManipulator(point, direction)
 
                     initThreadLength = adsk.core.ValueInput.createByReal(defaultThreadLength)
-                    inputs.addValueInput('threadLength', _('Thread Length'), 'mm', initThreadLength)                    
-                    
+                    inputs.addValueInput('threadLength', _('Thread Length'), 'mm', initThreadLength)
+
                     # Create group input
                     groupCmdInput = inputs.addGroupCommandInput('group', _('Advanced'))
                     groupCmdInput.isExpanded = False
@@ -823,34 +859,34 @@ def run(context):
 
                     initHexagonDiameter = adsk.core.ValueInput.createByReal(defaultHexagonDiameter)
                     groupChildInputs.addValueInput('hexagonDiameter', _('Hexagon Diameter'), 'mm', initHexagonDiameter)
-                    
+
                     initHexagonHeight = adsk.core.ValueInput.createByReal(defaultHexagonHeight)
                     groupChildInputs.addValueInput('hexagonHeight', _('Hexagon Height'), 'mm', initHexagonHeight)
 
                     initFilletRadius = adsk.core.ValueInput.createByReal(defaultFilletRadius)
                     groupChildInputs.addValueInput('filletRadius', _('Fillet Radius'), 'mm', initFilletRadius)
-                    
+
                     initChamferDistance = adsk.core.ValueInput.createByReal(defaultChamferDistance)
                     groupChildInputs.addValueInput('chamferDistance', _('Chamfer Distance'), 'mm', initChamferDistance)
-                    
+
                     textBox = inputs.addTextBoxCommandInput('textBox', 'Status', fetchedPresets, 1, True)
                     textBox.isFullWidth = True
-                    
+
                     #Connect all Handlers
                     onExecute = CommandExecuteHandler()
                     cmd.execute.add(onExecute)
 
                     onInputChanged = InputChangedHandler()
                     cmd.inputChanged.add(onInputChanged)
-                    
+
                     onPreview = CommandExecutePreviewHandler()
                     cmd.executePreview.add(onPreview)
-                    
+
                     # keep the handler referenced beyond this function
                     handlers.append(onExecute)
                     handlers.append(onInputChanged)
                     handlers.append(onPreview)
-                    
+
                     '''
                     selInput = commandInputs_.addSelectionInput(selectionInputId, _('Selection'), _('Select one'))
                     selInput.addSelectionFilter('PlanarFaces')
@@ -861,14 +897,14 @@ def run(context):
                     dropDownItems_.add(_('ListItem 2'), False)
                     dropDownItems_.add(_('ListItem 3'), False)
                     '''
-                    
+
                     #ui.messageBox(_('Panel command created successfully'))
                 except:
                     if ui:
                         ui.messageBox(_('Panel command created failed: {}').format(traceback.format_exc()))
 
         commandDefinitions_ = ui.commandDefinitions
-        
+
         # add a command on create panel in modeling workspace
         workspaces_ = ui.workspaces
         modelingWorkspace_ = workspaces_.itemById('FusionSolidEnvironment')
@@ -893,18 +929,18 @@ def run(context):
         return
         if ui and False:
             ui.messageBox(_('AddIn Start Failed: {}').format(traceback.format_exc()))
-            
-            
-            
+
+
+
 '''
 Stop function runs when Add-In is stopped or Fusion crashes
-'''            
+'''
 def stop(context):
     ui = None
     try:
         app = adsk.core.Application.get()
         ui = app.userInterface
-        
+
         objArrayQAT = []
         objArrayPanel = []
 
