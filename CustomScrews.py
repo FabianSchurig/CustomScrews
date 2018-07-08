@@ -38,8 +38,12 @@ defaultChamferDistance = 0.025 #c
 
 # {name,d=k,dk,s,t,b,bodylength}
 #ISO 4762/ DIN912
-presets = [[1,'M2 x8',0.2,0.38,0.2,0.15,0.1,0.6,0.8],[2,'M2 x10',0.2,0.38,0.2,0.15,0.1,0.6,1.0],[3,'M2 x12',0.2,0.38,0.2,0.15,0.1,0.6,1.2],
-           [4,'M3 x8',0.3,0.568,0.3,0.25,0.19,0.6,0.8],[5,'M3 x10',0.3,0.568,0.3,0.25,0.19,0.6,1.0],[6,'M3 x12',0.3,0.568,0.3,0.25,0.19,0.6,1.2]]
+presets = [{"id":1,"name":"M2 x8","body_diameter":0.2,"head_diameter":0.38,"head_height":0.2,"hexagon_diameter":0.15,"hexagon_height":0.1,"thread_length":0.6,"body_length":0.8},
+{"id":2,"name":"M2 x10","body_diameter":0.2,"head_diameter":0.38,"head_height":0.2,"hexagon_diameter":0.15,"hexagon_height":0.1,"thread_length":0.6,"body_length":1.0},
+{"id":3,"name":"M2 x12","body_diameter":0.2,"head_diameter":0.38,"head_height":0.2,"hexagon_diameter":0.15,"hexagon_height":0.1,"thread_length":0.6,"body_length":1.2},
+{"id":4,"name":"M3 x8","body_diameter":0.3,"head_diameter":0.568,"head_height":0.3,"hexagon_diameter":0.25,"hexagon_height":0.19,"thread_length":0.6,"body_length":0.8},
+{"id":5,"name":"M3 x10","body_diameter":0.3,"head_diameter":0.568,"head_height":0.3,"hexagon_diameter":0.25,"hexagon_height":0.19,"thread_length":0.6,"body_length":1.0},
+{"id":6,"name":"M3 x12","body_diameter":0.3,"head_diameter":0.568,"head_height":0.3,"hexagon_diameter":0.25,"hexagon_height":0.19,"thread_length":0.6,"body_length":1.2}]
 lastPresetId = 0
 
 # global set of event handlers to keep them referenced for the duration of the command
@@ -47,21 +51,31 @@ handlers = []
 app = adsk.core.Application.get()
 if app:
     ui = app.userInterface
-    
+
 newComp = None
 rowNumber = 0
+HOST = "http://localhost:5000"#"http://adsk.hk-fs.de" #localhost:5000
+isSaved = True
+lengthSaved = True
+buttonClicked = True
+buttonNewClicked = True
+screwId = None
+lastThreadLength = 0
+lastBodyLength = 0
+textArea= ""
+
 
 def addRow(tableInput,inputs,preset):
 
     button = inputs.addBoolValueInput(tableInput.id + '_button{}'.format(rowNumber), '', False, './resources/B', False)
     #button.isFullWidth = True
 
-    stringInput = inputs.addStringValueInput(tableInput.id + '_stringInput{}'.format(rowNumber), '', str(preset[1]))
+    stringInput = inputs.addStringValueInput(tableInput.id + '_stringInput{}'.format(rowNumber), '', str(preset['name']))
     stringInput.isReadOnly = True
 
     s = ''
-    if preset[8] != None:
-        s = str(preset[8]*10) + " mm"
+    if 'body_length' in preset.keys() and preset['body_length'] != None and preset['body_length'] != 'null' :
+        s = str(preset['body_length']*10) + " mm"
     else:
         s = 'None'
     bodyLength = inputs.addStringValueInput(tableInput.id + '_bodyLength{}'.format(rowNumber), '', str(s))
@@ -76,8 +90,53 @@ def addRow(tableInput,inputs,preset):
     rowNumber = rowNumber + 1
 
 def getPresetParameters():
+    global HOST
     try:
-        r = requests.get('http://adsk.hk-fs.de') # http://adsk.hk-fs.de localhost:5000
+        r = requests.get(HOST + "/user/all/screws/") # http://adsk.hk-fs.de localhost:5000
+        return r.json()
+    except:
+        return None
+
+def getPresetParametersByUserId(userId):
+    #app.currentUser.displayName
+    global HOST
+    try:
+        r = requests.get(HOST + "/user/" + userId + "/screws/") # http://adsk.hk-fs.de localhost:5000
+        return r.json()
+    except:
+        return None
+
+def registerUser(payload):
+    global HOST
+    try:
+        r = requests.post(HOST + '/users/', json = payload)
+        return r.json()
+    except:
+        return None
+
+def publishScrewByUserId(userId, payload):
+    global HOST
+    #app.currentUser.displayName
+    try:
+        r = requests.post(HOST + "/user/" + userId + "/screws/", json = payload)
+        return r.json()
+    except:
+        return None
+
+def putScrewByUserId(userId, screwId, payload):
+    global HOST
+    #app.currentUser.displayName
+    try:
+        r = requests.put(HOST + "/user/" + userId + "/screw/"+ screwId, json = payload)
+        return r.json()
+    except:
+        return None
+
+def publishScrewLength(screwId, payload):
+    global HOST
+    #app.currentUser.displayName
+    try:
+        r = requests.post(HOST + "/screw/" + screwId + "/length/", json = payload)
         return r.json()
     except:
         return None
@@ -189,6 +248,9 @@ class Screw
 '''
 class Screw:
     def __init__(self):
+        self._id = None
+        self._isSaved = True
+        self._lengthSaved = False
         self._screwName = defaultCylinderheadScrewName
         self._headDiameter = adsk.core.ValueInput.createByReal(defaultCylinderheadDiameter)
         self._bodyDiameter = adsk.core.ValueInput.createByReal(defaultBodyDiameter)
@@ -201,6 +263,27 @@ class Screw:
         self._chamferDistance = defaultChamferDistance
 
     #properties
+    @property
+    def id(self):
+        return self._id
+    @id.setter
+    def id(self, value):
+        self._id = value
+
+    @property
+    def isSaved(self):
+        return self._isSaved
+    @isSaved.setter
+    def isSaved(self, value):
+        self._isSaved = value
+
+    @property
+    def lengthSaved(self):
+        return self._lengthSaved
+    @isSaved.setter
+    def lengthSaved(self, value):
+        self._lengthSaved = value
+
     @property
     def screwName(self):
         return self._screwName
@@ -414,7 +497,17 @@ class Screw:
         jointOriginInput = jointOrigins_[0]
 
         joints = rootComp.joints
-        jointInput = joints.createInput(jointOriginInput, jointOrigin)
+        entity = jointOrigin.entity
+        ui.messageBox(str(jointOrigin.entity.objectType))
+        if (jointOrigin.entity.objectType == adsk.fusion.SketchPoint.classType() or jointOrigin.entity.objectType == adsk.fusion.ConstructionPoint.classType() or jointOrigin.entity.objectType == adsk.fusion.BRepVertex.classType()):
+            ui.messageBox(str(jointOrigin.entity.objectType))
+            entity = adsk.fusion.JointGeometry.createByPoint(jointOrigin.entity)
+        if (jointOrigin.entity.objectType == adsk.fusion.JointOrigin.classType()):
+            entity = jointOrigin.entity
+        if (jointOrigin.entity.objectType == adsk.fusion.BRepEdge.classType()):
+            entity = adsk.fusion.JointGeometry.createByCurve(jointOrigin.entity, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
+        #adsk.fusion.BRepBody.classType()
+        jointInput = joints.createInput(jointOriginInput, entity)
 
         # Set the joint input
         # Set the joint input
@@ -428,6 +521,7 @@ class Screw:
         #Create the joint
         joint = joints.add(jointInput)
     def copy(self):
+        global newComp
         product = app.activeProduct
         design = adsk.fusion.Design.cast(product)
         rootComp = design.rootComponent
@@ -443,7 +537,7 @@ class Screw:
         i = 0
         for face in b.faces:
             #ui.messageBox('yeyy '+str(i)+'lol '+str(face.centroid.z))
-            if face.centroid.z == self.headHeight:
+            if face.centroid.z == 0: # self.headHeight
                 #ui.messageBox('yeyy '+str(i)+'lol '+str(self.headHeight))
                 break
             i = i + 1
@@ -461,6 +555,7 @@ class Screw:
         jointOrigins_.add(jointOriginInput)
         return tmpComp
     def sketch(self):
+        global textArea
         isValid = True
         errStr = ""
         if self.bodyDiameter/2 < self.chamferDistance or self.chamferDistance <= 0:
@@ -482,16 +577,19 @@ class Screw:
             isValid = False
             errStr += "thread length \n"
         if self.headDiameter < (self.bodyDiameter + 4*self.filletRadius) or math.isclose(self.headDiameter, (self.bodyDiameter + 4*self.filletRadius), rel_tol=1e-09, abs_tol=0.0):
-            isValid = False  
+            isValid = False
             errStr += "head diameter \n"
         if not isValid:
-            ui.messageBox('wrong input values \n'+errStr,'Component Failed')
+            textArea = 'wrong input values \n'+errStr
+            #args.command.commandInputs.itemById('textBox').text = 'wrong input values \n'+errStr
+            #ui.messageBox('wrong input values \n'+errStr,'Component Failed')
             return
-        
+
         global newComp
         newComp = createNewComponent()
         if newComp is None:
-            ui.messageBox('New component failed to create', 'New Component Failed')
+            textArea = 'New component failed to create'
+            #ui.messageBox('New component failed to create', 'New Component Failed')
             return
 
         # Create a new sketch.
@@ -618,7 +716,7 @@ class Screw:
 run - main function of the Add-in
 '''
 def run(context):
-    ui = None
+    #ui = None
     try:
         app = adsk.core.Application.get()
         ui = app.userInterface
@@ -634,6 +732,7 @@ def run(context):
         iconResources = './resources'
 
         screw = Screw()
+        #registerUser({"id": app.currentUser.userId, "email": app.currentUser.email, "display_name": app.currentUser.displayName, "name": app.currentUser.userName})
 
         '''
         function InputChangedHandler triggers if sth was changed
@@ -642,6 +741,7 @@ def run(context):
             def __init__(self):
                 super().__init__()
             def notify(self, args):
+                global isSaved, lengthSaved, screwId, lastThreadLength, lastBodyLength
                 try:
                     eventArgs = adsk.core.InputChangedEventArgs.cast(args)
                     changedInput = eventArgs.input
@@ -656,29 +756,42 @@ def run(context):
                     if tableInput.id + '_button' in cmdInput.id:
                         preset = str(cmdInput.id).replace(tableInput.id + '_button',"")
                         #ui.messageBox(preset)
-                        inputs.itemById('screwName').value = presets[int(preset)][1]
-                        inputs.itemById('bodyDiameter').value = presets[int(preset)][2]
-                        inputs.itemById('headDiameter').value = presets[int(preset)][3]
-                        inputs.itemById('headHeight').value = presets[int(preset)][4]
-                        inputs.itemById('hexagonDiameter').value = presets[int(preset)][5]
-                        inputs.itemById('hexagonHeight').value = presets[int(preset)][6]
-                        if presets[int(preset)][7] == None or presets[int(preset)][8] == None:
-                            inputs.itemById('threadLength').value = presets[int(preset)][4]*5 - 0.2
-                            inputs.itemById('bodyLength').value = presets[int(preset)][4]*5
+                        #s.id,name,body_diameter,head_diameter,head_height,hexagon_diameter,hexagon_height,thread_length,body_length
+                        #ui.messageBox(str(presets[int(preset)]['id']))
+                        inputs.itemById('id').value = str(presets[int(preset)]['id'])
+                        inputs.itemById('screwName').value = presets[int(preset)]['name'] #1
+                        inputs.itemById('bodyDiameter').value = presets[int(preset)]['body_diameter'] #2
+                        inputs.itemById('headDiameter').value = presets[int(preset)]['head_diameter'] #3
+                        inputs.itemById('headHeight').value = presets[int(preset)]['head_height'] #4
+                        inputs.itemById('hexagonDiameter').value = presets[int(preset)]['hexagon_diameter'] #5
+                        inputs.itemById('hexagonHeight').value = presets[int(preset)]['hexagon_height'] #6
+                        if presets[int(preset)]['thread_length'] == None or presets[int(preset)]['body_length'] == None: #8
+                            inputs.itemById('threadLength').value = presets[int(preset)]['head_height']*5 - 0.2 #4
+                            inputs.itemById('bodyLength').value = presets[int(preset)]['head_height']*5 #4
                         else:
-                            inputs.itemById('threadLength').value = presets[int(preset)][7]
-                            inputs.itemById('bodyLength').value = presets[int(preset)][8]
+                            inputs.itemById('threadLength').value = presets[int(preset)]['thread_length'] #7
+                            inputs.itemById('bodyLength').value = presets[int(preset)]['body_length'] #8
+                            lastThreadLength = presets[int(preset)]['thread_length']
+                            lastBodyLength = presets[int(preset)]['body_length']
+
+                        isSaved = True
+                        lengthSaved = True
+                        screwId = str(presets[int(preset)]['id'])
+
 
                     global lastPresetId
                     preset = inputs.itemById('dropdownPresets')
                     if preset.selectedItem.index > 0 and preset.selectedItem.index <= len(presets) and preset.selectedItem.index != lastPresetId:
-                        inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index-1][2]
-                        inputs.itemById('headDiameter').value = presets[preset.selectedItem.index-1][3]
-                        inputs.itemById('headHeight').value = presets[preset.selectedItem.index-1][4]
-                        inputs.itemById('hexagonDiameter').value = presets[preset.selectedItem.index-1][5]
-                        inputs.itemById('hexagonHeight').value = presets[preset.selectedItem.index-1][6]
-                        inputs.itemById('threadLength').value = presets[preset.selectedItem.index-1][7]
-                        inputs.itemById('bodyLength').value = presets[preset.selectedItem.index-1][8]
+                        inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index-1]['body_diameter']
+                        inputs.itemById('headDiameter').value = presets[preset.selectedItem.index-1]['head_diameter']
+                        inputs.itemById('headHeight').value = presets[preset.selectedItem.index-1]['head_height']
+                        inputs.itemById('hexagonDiameter').value = presets[preset.selectedItem.index-1]['hexagon_diameter']
+                        inputs.itemById('hexagonHeight').value = presets[preset.selectedItem.index-1]['hexagon_height']
+                        inputs.itemById('threadLength').value = presets[preset.selectedItem.index-1]['thread_length']
+                        inputs.itemById('bodyLength').value = presets[preset.selectedItem.index-1]['body_length']
+                        screwId = presets[preset.selectedItem.index-1]['id']
+                        lastThreadLength = presets[preset.selectedItem.index-1]['thread_length']
+                        lastBodyLength = presets[preset.selectedItem.index-1]['body_length']
                         #ui.messageBox('input changed '+str(lastPresetId) +' '+str(preset.selectedItem.index)+' '+str(inputs.itemById('bodyDiameter').value))
 
                     point = adsk.core.Point3D.create(0, 0, inputs.itemById('headHeight').value)
@@ -702,6 +815,7 @@ def run(context):
             def __init__(self):
                 super().__init__()
             def notify(self, args):
+                global screwId, presets, isSaved, lengthSaved, buttonClicked, buttonNewClicked, lastBodyLength, lastThreadLength, textArea, rowNumber, newComp
                 try:
                     eventArgs = adsk.core.CommandEventArgs.cast(args)
                     unitsMgr = app.activeProduct.unitsManager
@@ -717,25 +831,113 @@ def run(context):
                             screw.bodyDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'headHeight':
                             screw.headHeight = unitsMgr.evaluateExpression(input.expression, "mm")
-                        elif input.id == 'bodyLength':
-                            screw.bodyLength = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'filletRadius':
                             screw.filletRadius = unitsMgr.evaluateExpression(input.expression, "mm")
-                        elif input.id == 'threadLength':
-                            screw.threadLength = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'hexagonDiameter':
                             screw.hexagonDiameter = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'hexagonHeight':
                             screw.hexagonHeight = unitsMgr.evaluateExpression(input.expression, "mm")
                         elif input.id == 'chamferDistance':
                             screw.chamferDistance = unitsMgr.evaluateExpression(input.expression, "mm")
+                        elif input.id == 'bodyLength':
+                            screw.bodyLength = unitsMgr.evaluateExpression(input.expression, "mm")
+                            if screw.bodyLength != lastBodyLength:
+                                lengthSaved = False
+                                lastBodyLength = screw.bodyLength
+                        elif input.id == 'threadLength':
+                            screw.threadLength = unitsMgr.evaluateExpression(input.expression, "mm")
+                            if screw.threadLength != lastThreadLength:
+                                lengthSaved = False
+                                lastThreadLength = screw.threadLength
+                        elif input.id == 'id':
+                            screwId = input.value
+                        elif input.id == 'buttonNew':
+                            if buttonNewClicked != input.value:
+                                #ui.messageBox(str(buttonNewClicked))
+                                screwId = None
+                                inputs.itemById('id').value = ""
+                                textArea = "Added new screw. Save the screw when you finished editing."
+                                #ui.messageBox(screwId)
+                                buttonNewClicked = input.value
+                        elif input.id == 'buttonSave':
+                            #ui.messageBox(str(buttonClicked))
+                            #ui.messageBox(str(input.value))
+                            #if screwId:
+                            #    ui.messageBox(str(screwId))
+                            #else:
+                            #    ui.messageBox("None")
+                            if buttonClicked != input.value:
+                                textArea = "Start saving Screw ..."
+                                inputs.itemById('textBox').text = textArea
+                                registerUser({"userId": app.currentUser.userId, "email": app.currentUser.email, "display_name": app.currentUser.displayName, "name": app.currentUser.userName})
+                                if screwId:
+                                    s = putScrewByUserId(app.currentUser.userId, screwId ,{'name': screw.screwName, 'body_diameter': screw.bodyDiameter, 'head_diameter': screw.headDiameter, 'head_height': screw.headHeight, 'hexagon_diameter': screw.hexagonDiameter, 'hexagon_height': screw.hexagonHeight})
+                                    if s:
+                                        textArea = textArea + "\nSaved new Screw."
+                                        inputs.itemById('textBox').text = textArea
+                                    else:
+                                        textArea = textArea + "\nNo connection to Server."
+                                        inputs.itemById('textBox').text = textArea
+                                        buttonClicked = input.value
+                                else:
+                                    s = publishScrewByUserId(app.currentUser.userId ,{'name': screw.screwName, 'body_diameter': screw.bodyDiameter, 'head_diameter': screw.headDiameter, 'head_height': screw.headHeight, 'hexagon_diameter': screw.hexagonDiameter, 'hexagon_height': screw.hexagonHeight})
+                                    if s:
+                                        inputs.itemById('id').value = str(s['iso_4762']['id'])
+                                        screwId = str(s['iso_4762']['id'])
+                                        isSaved = True
+                                        lengthSaved = False
+                                        textArea = textArea + "\nSaved new Screw."
+                                        inputs.itemById('textBox').text = textArea
+                                    else:
+                                        textArea = textArea + "\nNo connection to Server."
+                                        inputs.itemById('textBox').text = textArea
+                                        buttonClicked = input.value
+                                table = inputs.itemById('presetTable')
+                                table.clear()
+                                rowNumber = 0
+                                r = getPresetParametersByUserId(app.currentUser.userId)
+
+                                #ui.messageBox('Get_Request '+str(r['iso_4762']))
+                                if r != None:
+                                    presets = r['iso_4762']
+                                    textArea = textArea + "\nEdited existing Screw."
+                                    inputs.itemById('textBox').text = textArea
+
+                                for preset in presets:
+                                    addRow(table, inputs, preset)
+
+                            #ui.messageBox(str(lengthSaved))
+                            #ui.messageBox(str(screwId))
+                            #ui.messageBox(str(isSaved))
+                            if not lengthSaved and screwId and buttonClicked != input.value:
+                                #ui.messageBox("length")
+                                textArea = "Save length of Screw ..."
+                                inputs.itemById('textBox').text = textArea
+                                #ui.messageBox(str(s['iso_4762']['id']))
+                                s = publishScrewLength(screwId, {"thread_length" :screw.threadLength, "body_length" :screw.bodyLength})
+                                if s:
+                                    #add row to table
+                                    table = inputs.itemById('presetTable')
+
+                                    preset = {'id': screwId, 'name': screw.screwName, 'body_diameter': screw.bodyDiameter, 'head_diameter': screw.headDiameter, 'head_height': screw.headHeight, 'hexagon_diameter': screw.hexagonDiameter, 'hexagon_height': screw.hexagonHeight, 'thread_length': screw.threadLength, 'body_length': screw.bodyLength}
+                                    presets.append(preset)
+                                    addRow(table, inputs, preset)
+                                    textArea = "Added new row for Screw ID: "+str(screwId)+"\nThread Length: " +str(screw.threadLength)+ "\nBody Length: " +str(screw.bodyLength)
+                                    inputs.itemById('textBox').text = textArea
+                                    lengthSaved = True
+
+                            buttonClicked = input.value
+
                     screw.sketch()
-#                    screw.buildScrew()
-#                    for j in range(0, inputs.itemById('jointSelection').selectionCount):
-#                        joinComp = screw.copy()
-#                        screw.joinScrew(inputs.itemById('jointSelection').selection(j).entity,joinComp)
-#                        j = j + 1
-#                    eventArgs.isValidResult = True
+                    inputs.itemById('textBox').text = textArea
+                    #screw.buildScrew()
+                    for j in range(0, inputs.itemById('jointSelection').selectionCount):
+                        joinComp = screw.copy()
+                        screw.joinScrew(inputs.itemById('jointSelection').selection(j),joinComp)
+                        j = j + 1
+                    if inputs.itemById('jointSelection').selectionCount > 0:
+                        newComp.bRepBodies.item(0).isVisible = False
+                    eventArgs.isValidResult = True
                 except:
                     if ui:
                         ui.messageBox(_('execute preview failed: {}').format(traceback.format_exc()))
@@ -773,7 +975,7 @@ def run(context):
 
                     screw.sketch()
                     args.isValidResult = True
-                    ui.messageBox(_('command: {} executed successfully').format(command.parentCommandDefinition.id))
+                    #ui.messageBox(_('command: {} executed successfully').format(eventArgs.command.parentCommandDefinition.id))
                 except:
                     if ui:
                         ui.messageBox(_('command executed failed: {}').format(traceback.format_exc()))
@@ -782,6 +984,7 @@ def run(context):
             def __init__(self):
                 super().__init__()
             def notify(self, args):
+                global textArea
                 try:
                     cmd = args.command
                     cmd.isRepeatable = False
@@ -790,14 +993,15 @@ def run(context):
                     global rowNumber
                     rowNumber = 0
 
-                    fetchedPresets = '<b>Notice:</b> Database connection failed! '+str(len(presets))+' offline presets loaded'
+                    fetchedPresets = ""
+                    textArea = 'Database connection failed! '+str(len(presets))+' offline presets loaded'
                     #load Presets
-                    r = getPresetParameters()
+                    r = getPresetParametersByUserId(app.currentUser.userId)
 
                     #ui.messageBox('Get_Request '+str(r['iso_4762']))
                     if r != None:
                         presets = r['iso_4762']
-                        fetchedPresets = 'Database connected! Fetched '+str(len(presets))+' online presets'
+                        textArea = 'Database connected! Fetched '+str(len(presets))+' online presets'
                         #ui.messageBox(str(len(r['iso_4762'])))
 
                     #define the inputs
@@ -810,7 +1014,7 @@ def run(context):
 
                     # Define some of the table properties.
                     table.minimumVisibleRows = 3
-                    table.maximumVisibleRows = 4
+                    table.maximumVisibleRows = 10
                     table.columnSpacing = 10
                     table.rowSpacing = 2
                     # transparentBackgroundTablePresentationStyle itemBorderTablePresentationStyle nameValueTablePresentationStyle
@@ -825,12 +1029,20 @@ def run(context):
                     dropdownItems = dropdownInputPreset.listItems
                     dropdownItems.add('Default', True, '')
                     for preset in presets:
-                        dropdownItems.add(str(preset[1]), False, '')
+                        dropdownItems.add(str(preset['name']), False, '')
                     dropdownInputPreset.isVisible = False
+
+                    trInput = inputs.addStringValueInput('id', 'Screw Id', '')
+                    #trInput.isVisible = False
+                    trInput.isReadOnly = True
 
                     selectionInput = inputs.addSelectionInput('jointSelection', 'Select Joins', 'Select origins to join')
                     selectionInput.setSelectionLimits(0)
                     selectionInput.addSelectionFilter('JointOrigins')
+                    selectionInput.addSelectionFilter('SketchPoints')
+                    selectionInput.addSelectionFilter('ConstructionPoints')
+                    selectionInput.addSelectionFilter('Vertices')
+                    selectionInput.addSelectionFilter('CircularEdges')
 
 
                     initBodyLength = adsk.core.ValueInput.createByReal(defaultBodyLength)
@@ -869,7 +1081,13 @@ def run(context):
                     initChamferDistance = adsk.core.ValueInput.createByReal(defaultChamferDistance)
                     groupChildInputs.addValueInput('chamferDistance', _('Chamfer Distance'), 'mm', initChamferDistance)
 
-                    textBox = inputs.addTextBoxCommandInput('textBox', 'Status', fetchedPresets, 1, True)
+                    buttonSave = groupChildInputs.addBoolValueInput('buttonSave', ' Save Current Screw ', False, '', True)
+                    buttonSave.isFullWidth = True
+
+                    buttonNew = groupChildInputs.addBoolValueInput('buttonNew', ' Create New Screw ', False, '', True)
+                    buttonNew.isFullWidth = True
+
+                    textBox = inputs.addTextBoxCommandInput('textBox', 'Status', fetchedPresets, 5, True)
                     textBox.isFullWidth = True
 
                     #Connect all Handlers
@@ -923,10 +1141,11 @@ def run(context):
             handlers.append(onCommandCreated)
             toolbarControlPanel_ = toolbarControlsPanel_.addCommand(commandDefinitionPanel_)
             toolbarControlPanel_.isVisible = True
-            ui.messageBox(_('The command "Create Screw" is successfully added to the create panel in modeling workspace'))
+            #ui.messageBox(_('The command "Create Screw" is successfully added to the create panel in modeling workspace {}').format(app.userId + ":" + app.currentUser.displayName))
 
     except:
-        return
+        if ui:
+            ui.messageBox(_('AddIn Start Failed: {}').format(traceback.format_exc()))
 
 
 
@@ -963,7 +1182,9 @@ def stop(context):
 
         for obj in objArrayPanel:
             destroyObject(ui, obj)
-        ui.messageBox(_('Addin succesfully stopped!'))
+        # throws AddIn start failed?
+        #if ui:
+        #    ui.messageBox(_('Addin succesfully stopped!'))
     except:
         if ui:
             ui.messageBox(_('AddIn Stop Failed: {}').format(traceback.format_exc()))

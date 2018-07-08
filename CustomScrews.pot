@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2016-08-29 14:59+0200\n"
+"POT-Creation-Date: 2018-07-06 12:11+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -15,99 +15,95 @@ msgstr ""
 "Generated-By: pygettext.py 1.5\n"
 
 
-#: CustomScrews.py:96
+#: .\CustomScrews.py:139
 msgid "commandDefinition id is not specified"
 msgstr ""
 
-#: CustomScrews.py:109 CustomScrews.py:124
+#: .\CustomScrews.py:152 .\CustomScrews.py:167
 msgid "commandControl id is not specified"
 msgstr ""
 
-#: CustomScrews.py:142
+#: .\CustomScrews.py:185
 msgid "tobeDeleteObj is not a valid object"
 msgstr ""
 
-#: CustomScrews.py:361
+#: .\CustomScrews.py:631
 msgid "Create Screw"
 msgstr ""
 
-#: CustomScrews.py:362
-msgid "Create a Screw by set of different parameters"
+#: .\CustomScrews.py:632
+msgid "Create a cylinderhead screw by manipulating different parameters or select preset values."
 msgstr ""
 
-#: CustomScrews.py:379
+#: .\CustomScrews.py:700
 msgid "Input changed event failed: {}"
 msgstr ""
 
-#: CustomScrews.py:416
-msgid "command: {} executed successfully"
+#: .\CustomScrews.py:741
+msgid "execute preview failed: {}"
 msgstr ""
 
-#: CustomScrews.py:419
+#: .\CustomScrews.py:779
 msgid "command executed failed: {}"
 msgstr ""
 
-#: CustomScrews.py:441
+#: .\CustomScrews.py:805
 msgid "Screw Name"
 msgstr ""
 
-#: CustomScrews.py:444
-msgid "Head Diameter"
+#: .\CustomScrews.py:824
+msgid "Presets"
 msgstr ""
 
-#: CustomScrews.py:447
-msgid "Body Diameter"
-msgstr ""
-
-#: CustomScrews.py:450
-msgid "Head Height"
-msgstr ""
-
-#: CustomScrews.py:453
+#: .\CustomScrews.py:837
 msgid "Body Length"
 msgstr ""
 
-#: CustomScrews.py:456
-msgid "Hexagon Diameter"
-msgstr ""
-
-#: CustomScrews.py:459
-msgid "Hexagon Height"
-msgstr ""
-
-#: CustomScrews.py:464
-msgid "Fillet Radius"
-msgstr ""
-
-#: CustomScrews.py:467
+#: .\CustomScrews.py:843
 msgid "Thread Length"
 msgstr ""
 
-#: CustomScrews.py:470
+#: .\CustomScrews.py:846
+msgid "Advanced"
+msgstr ""
+
+#: .\CustomScrews.py:852
+msgid "Head Diameter"
+msgstr ""
+
+#: .\CustomScrews.py:855
+msgid "Body Diameter"
+msgstr ""
+
+#: .\CustomScrews.py:858
+msgid "Head Height"
+msgstr ""
+
+#: .\CustomScrews.py:861
+msgid "Hexagon Diameter"
+msgstr ""
+
+#: .\CustomScrews.py:864
+msgid "Hexagon Height"
+msgstr ""
+
+#: .\CustomScrews.py:867
+msgid "Fillet Radius"
+msgstr ""
+
+#: .\CustomScrews.py:870
 msgid "Chamfer Distance"
 msgstr ""
 
-#: CustomScrews.py:484
-msgid "Panel command created successfully"
-msgstr ""
-
-#: CustomScrews.py:487
+#: .\CustomScrews.py:904
 msgid "Panel command created failed: {}"
 msgstr ""
 
-#: CustomScrews.py:508
-msgid "The command is successfully added to the create panel in modeling workspace"
+#: .\CustomScrews.py:926
+msgid "The command \"Create Screw\" is successfully added to the create panel in modeling workspace"
 msgstr ""
 
-#: CustomScrews.py:512
-msgid "AddIn Start Failed: {}"
-msgstr ""
-
-#: CustomScrews.py:549
+#: .\CustomScrews.py:968
 msgid "Addin succesfully stopped!"
-msgstr ""
-
-#: CustomScrews.py:552
-msgid "AddIn Stop Failed: {}"
 msgstr ""
 
