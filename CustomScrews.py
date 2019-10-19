@@ -66,6 +66,7 @@ textArea= ""
 
 
 def addRow(tableInput,inputs,preset):
+    global rowNumber
 
     button = inputs.addBoolValueInput(tableInput.id + '_button{}'.format(rowNumber), '', False, './resources/B', False)
     #button.isFullWidth = True
@@ -86,7 +87,6 @@ def addRow(tableInput,inputs,preset):
     tableInput.addCommandInput(stringInput, row, 1)
     tableInput.addCommandInput(bodyLength, row, 2)
 
-    global rowNumber
     rowNumber = rowNumber + 1
 
 def getPresetParameters():
