@@ -11,9 +11,8 @@ from .screw import Screw
 
 sys.path.append("./modules")
 import requests
-
-sys.stdout = open('D:\\python_output.txt', 'w')
-
+import logging
+from pathlib import Path
 
 # global set of event handlers to keep them referenced for the duration of the command
 _handlers = []
@@ -25,6 +24,7 @@ _command_name = 'Create Screw'
 _command_tooltip = 'Create a cylinderhead screw by manipulating different parameters or select preset values.'
 _command_resource_folder = './resources'
 _toolbar_id = 'InsertPanel'
+_logging_directory = 'CustomScrews'
 
 defaultCylinderheadScrewName = 'Screw'
 defaultCylinderheadDiameter = 0.55  # dk
@@ -275,9 +275,7 @@ class InputChangedHandler(adsk.core.InputChangedEventHandler):
 
 
         except Exception as e:
-            print("4 {}".format(e))
-            if ui:
-                ui.messageBox('Input changed event failed: {}'.format(traceback.format_exc()))
+            logging.error(f'InputChangedHandler {e}')
 
 
 class CommandExecutePreviewHandler(adsk.core.CommandEventHandler):
@@ -429,9 +427,7 @@ class CommandExecutePreviewHandler(adsk.core.CommandEventHandler):
                 newComp.bRepBodies.item(0).isVisible = False
             eventArgs.isValidResult = True
         except Exception as e:
-            print("3 {}".format(e))
-            if ui:
-                ui.messageBox('execute preview failed: {}'.format(traceback.format_exc()))
+            logging.error(f'CommandExecutePreviewHandler {e}')
 
 
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
@@ -472,9 +468,7 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
             args.isValidResult = True
             # ui.messageBox(_('command: {} executed successfully').format(eventArgs.command.parentCommandDefinition.id))
         except Exception as e:
-            print("2 {}".format(e))
-            if ui:
-                ui.messageBox('command executed failed: {}'.format(traceback.format_exc()))
+            logging.error(f'CommandExecuteHandler {e}')
 
 
 class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
@@ -484,14 +478,15 @@ class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
     def notify(self, args):
         global textArea
         try:
-            
-            cmd = args.command
+            eventArgs = adsk.core.CommandCreatedEventArgs.cast(args)
+            logging.info(f"{eventArgs}")
+            cmd = eventArgs.command
             cmd.isRepeatable = False
             cmd.helpFile = 'help.html'
             global presets
             global rowNumber
             rowNumber = 0
-            ui.messageBox('creating panel')
+            logging.info('creating panel')
 
             fetchedPresets = ""
             textArea = 'Database connection failed! ' + str(len(presets)) + ' offline presets loaded'
@@ -619,10 +614,7 @@ class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
 
             # ui.messageBox('Panel command created successfully')
         except Exception as e:
-            print(e)
-            print('Panel command created failed: {}'.format(traceback.format_exc()))
-            if ui:
-                ui.messageBox('Panel command created failed: {}'.format(traceback.format_exc()))
+            logging.error(e)
 
 
 def run(context):
@@ -630,8 +622,11 @@ def run(context):
     run - main function of the Add-in
     '''
     # ui = None
-    global screw, app, ui
+    global screw, app, ui, _logging_directory
     screw = None
+
+    Path.home().joinpath(_logging_directory).mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(filename=Path.home().joinpath(_logging_directory).joinpath('custom_screws.log'), filemode='w', level=logging.DEBUG)
 
     app = adsk.core.Application.get()
     ui = app.userInterface
@@ -699,6 +694,5 @@ def stop(context):
         # throws AddIn start failed?
         # if ui:
         #    ui.messageBox(_('Addin succesfully stopped!'))
-    except:
-        if ui:
-            ui.messageBox('AddIn Stop Failed: {}'.format(traceback.format_exc()))
+    except Exception as e:
+        logging.error(f'AddIn Stop Failed: {e}')
