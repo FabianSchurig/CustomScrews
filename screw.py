@@ -4,9 +4,6 @@ import math
 import inspect
 import sys
 
-sys.path.append("./modules")
-import requests
-
 _app = adsk.core.Application.cast(None)
 _ui = adsk.core.UserInterface.cast(None)
 
@@ -33,6 +30,7 @@ class Screw:
     '''
     class Screw
     '''
+
     def __init__(self):
         '''
         define default parameters to initialize the screw
@@ -40,15 +38,15 @@ class Screw:
         '''
         global _app, _ui
         defaultCylinderheadScrewName = 'Screw'
-        defaultCylinderheadDiameter = 0.55  # dk
-        defaultCylinderheadHeight = 0.3  # k
-        defaultHexagonDiameter = 0.25  # s
-        defaultHexagonHeight = 0.19  # t
-        defaultThreadLength = 0.8  # b
-        defaultBodyLength = 1.0  # bodylength
-        defaultBodyDiameter = 0.25  # d
-        defaultFilletRadius = 0.025  # f
-        defaultChamferDistance = 0.025  # c-
+        defaultCylinderheadDiameter = 0.55    # dk
+        defaultCylinderheadHeight = 0.3    # k
+        defaultHexagonDiameter = 0.25    # s
+        defaultHexagonHeight = 0.19    # t
+        defaultThreadLength = 0.8    # b
+        defaultBodyLength = 1.0    # bodylength
+        defaultBodyDiameter = 0.25    # d
+        defaultFilletRadius = 0.025    # f
+        defaultChamferDistance = 0.025    # c-
 
         self._id = None
         self._isSaved = True
@@ -70,6 +68,7 @@ class Screw:
     @property
     def id(self):
         return self._id
+
     @id.setter
     def id(self, value):
         self._id = value
@@ -77,6 +76,7 @@ class Screw:
     @property
     def isSaved(self):
         return self._isSaved
+
     @isSaved.setter
     def isSaved(self, value):
         self._isSaved = value
@@ -84,6 +84,7 @@ class Screw:
     @property
     def lengthSaved(self):
         return self._lengthSaved
+
     @isSaved.setter
     def lengthSaved(self, value):
         self._lengthSaved = value
@@ -91,6 +92,7 @@ class Screw:
     @property
     def screwName(self):
         return self._screwName
+
     @screwName.setter
     def screwName(self, value):
         self._screwName = value
@@ -98,6 +100,7 @@ class Screw:
     @property
     def headDiameter(self):
         return self._headDiameter
+
     @headDiameter.setter
     def headDiameter(self, value):
         self._headDiameter = value
@@ -105,6 +108,7 @@ class Screw:
     @property
     def bodyDiameter(self):
         return self._bodyDiameter
+
     @bodyDiameter.setter
     def bodyDiameter(self, value):
         self._bodyDiameter = value
@@ -112,6 +116,7 @@ class Screw:
     @property
     def headHeight(self):
         return self._headHeight
+
     @headHeight.setter
     def headHeight(self, value):
         self._headHeight = value
@@ -119,6 +124,7 @@ class Screw:
     @property
     def bodyLength(self):
         return self._bodyLength
+
     @bodyLength.setter
     def bodyLength(self, value):
         self._bodyLength = value
@@ -126,6 +132,7 @@ class Screw:
     @property
     def threadLength(self):
         return self._threadLength
+
     @threadLength.setter
     def threadLength(self, value):
         self._threadLength = value
@@ -133,6 +140,7 @@ class Screw:
     @property
     def hexagonDiameter(self):
         return self._hexagonDiameter
+
     @hexagonDiameter.setter
     def hexagonDiameter(self, value):
         self._hexagonDiameter = value
@@ -140,6 +148,7 @@ class Screw:
     @property
     def hexagonHeight(self):
         return self._hexagonHeight
+
     @hexagonHeight.setter
     def hexagonHeight(self, value):
         self._hexagonHeight = value
@@ -147,6 +156,7 @@ class Screw:
     @property
     def filletRadius(self):
         return self._filletRadius
+
     @filletRadius.setter
     def filletRadius(self, value):
         self._filletRadius = value
@@ -154,6 +164,7 @@ class Screw:
     @property
     def chamferDistance(self):
         return self._chamferDistance
+
     @chamferDistance.setter
     def chamferDistance(self, value):
         self._chamferDistance = value
@@ -171,7 +182,7 @@ class Screw:
         xzPlane = newComp.xZConstructionPlane
         sketch = sketches.add(xyPlane)
         center = adsk.core.Point3D.create(0, 0, 0)
-        sketch.sketchCurves.sketchCircles.addByCenterRadius(center, self.headDiameter/2)
+        sketch.sketchCurves.sketchCircles.addByCenterRadius(center, self.headDiameter / 2)
 
         extrudes = newComp.features.extrudeFeatures
         prof = sketch.profiles[0]
@@ -184,7 +195,8 @@ class Screw:
         endFaceOfExtrude = headExt.endFaces.item(0)
 
         # Create the joint geometry
-        jointGeometry = adsk.fusion.JointGeometry.createByPlanarFace(endFaceOfExtrude, None, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
+        jointGeometry = adsk.fusion.JointGeometry.createByPlanarFace(
+            endFaceOfExtrude, None, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
 
         # Create the JointOriginInput
         jointOrigins_ = newComp.jointOrgins
@@ -211,13 +223,15 @@ class Screw:
         #cut the hexagon
         sketchHex = sketches.add(xyPlane)
         vertices = []
-        hexagonOuterDiameter = self.hexagonDiameter/math.sqrt(3)
+        hexagonOuterDiameter = self.hexagonDiameter / math.sqrt(3)
         for i in range(0, 6):
-            vertex = adsk.core.Point3D.create(center.x + (hexagonOuterDiameter) * math.cos(math.pi * i / 3), center.y + (hexagonOuterDiameter) * math.sin(math.pi * i / 3),0)
+            vertex = adsk.core.Point3D.create(
+                center.x + (hexagonOuterDiameter) * math.cos(math.pi * i / 3),
+                center.y + (hexagonOuterDiameter) * math.sin(math.pi * i / 3), 0)
             vertices.append(vertex)
 
         for i in range(0, 6):
-            sketchHex.sketchCurves.sketchLines.addByTwoPoints(vertices[(i+1) %6], vertices[i])
+            sketchHex.sketchCurves.sketchLines.addByTwoPoints(vertices[(i + 1) % 6], vertices[i])
 
         extrudes = newComp.features.extrudeFeatures
         prof = sketchHex.profiles[0]
@@ -233,10 +247,11 @@ class Screw:
 
         #create the body
         bodySketch = sketches.add(planeOne)
-        bodySketch.sketchCurves.sketchCircles.addByCenterRadius(center, self.bodyDiameter/2)
+        bodySketch.sketchCurves.sketchCircles.addByCenterRadius(center, self.bodyDiameter / 2)
 
         bodyProf = bodySketch.profiles[0]
-        bodyExtInput = extrudes.createInput(bodyProf, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+        bodyExtInput = extrudes.createInput(bodyProf,
+                                            adsk.fusion.FeatureOperations.JoinFeatureOperation)
 
         bodyExtInput.setAllExtent(adsk.fusion.ExtentDirections.NegativeExtentDirection)
         bodyExtInput.setDistanceExtent(False, self.bodyLength)
@@ -245,7 +260,7 @@ class Screw:
         # create chamfer
         edgeCol = adsk.core.ObjectCollection.create()
         edges = bodyExt.endFaces[0].edges
-        for edgeI  in edges:
+        for edgeI in edges:
             edgeCol.add(edgeI)
 
         chamferFeats = newComp.features.chamferFeatures
@@ -260,7 +275,7 @@ class Screw:
             loops = face.loops
             edgeLoop = None
             for edgeLoop in loops:
-                if(len(edgeLoop.edges) == 1):
+                if (len(edgeLoop.edges) == 1):
                     edgeCol.add(edgeLoop.edges[0])
                     break
 
@@ -271,7 +286,8 @@ class Screw:
         if self.filletRadius > 0:
             filletFeats = newComp.features.filletFeatures
             filletInput = filletFeats.createInput()
-            filletInput.addConstantRadiusEdgeSet(edgeCol, adsk.core.ValueInput.createByReal(self.filletRadius), True)
+            filletInput.addConstantRadiusEdgeSet(
+                edgeCol, adsk.core.ValueInput.createByReal(self.filletRadius), True)
             filletFeats.add(filletInput)
 
         #create thread
@@ -279,18 +295,19 @@ class Screw:
         threads = newComp.features.threadFeatures
         threadDataQuery = threads.threadDataQuery
         defaultThreadType = threadDataQuery.defaultMetricThreadType
-        recommendData = threadDataQuery.recommendThreadData(self.bodyDiameter, False, defaultThreadType)
-        if recommendData[0] :
-            threadInfo = threads.createThreadInfo(False, defaultThreadType, recommendData[1], recommendData[2])
+        recommendData = threadDataQuery.recommendThreadData(self.bodyDiameter, False,
+                                                            defaultThreadType)
+        if recommendData[0]:
+            threadInfo = threads.createThreadInfo(False, defaultThreadType, recommendData[1],
+                                                  recommendData[2])
             faces = adsk.core.ObjectCollection.create()
             faces.add(sideFace)
             threadInput = threads.createInput(faces, threadInfo)
             threadInput.isFullLength = False
             threadInput.threadLength = adsk.core.ValueInput.createByReal(self.threadLength)
             threads.add(threadInput)
-    
-    
-    def joinScrew(self,jointOrigin,joinComp):
+
+    def joinScrew(self, jointOrigin, joinComp):
         product = _app.activeProduct
         design = adsk.fusion.Design.cast(product)
 
@@ -305,13 +322,16 @@ class Screw:
         joints = rootComp.joints
         entity = jointOrigin.entity
         #ui.messageBox(str(jointOrigin.entity.objectType))
-        if (jointOrigin.entity.objectType == adsk.fusion.SketchPoint.classType() or jointOrigin.entity.objectType == adsk.fusion.ConstructionPoint.classType() or jointOrigin.entity.objectType == adsk.fusion.BRepVertex.classType()):
+        if (jointOrigin.entity.objectType == adsk.fusion.SketchPoint.classType() or
+                jointOrigin.entity.objectType == adsk.fusion.ConstructionPoint.classType() or
+                jointOrigin.entity.objectType == adsk.fusion.BRepVertex.classType()):
             #ui.messageBox(str(jointOrigin.entity.objectType))
             entity = adsk.fusion.JointGeometry.createByPoint(jointOrigin.entity)
         if (jointOrigin.entity.objectType == adsk.fusion.JointOrigin.classType()):
             entity = jointOrigin.entity
         if (jointOrigin.entity.objectType == adsk.fusion.BRepEdge.classType()):
-            entity = adsk.fusion.JointGeometry.createByCurve(jointOrigin.entity, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
+            entity = adsk.fusion.JointGeometry.createByCurve(
+                jointOrigin.entity, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
         #adsk.fusion.BRepBody.classType()
         jointInput = joints.createInput(jointOriginInput, entity)
 
@@ -329,8 +349,7 @@ class Screw:
 
         #Create the joint
         joint = joints.add(jointInput)
-    
-    
+
     def copy(self):
         global newComp, _app
         product = _app.activeProduct
@@ -344,19 +363,18 @@ class Screw:
         b = body.copyToComponent(newOcc)
         #ui.messageBox('fc '+str(body.faces.count))
 
-
         i = 0
         for face in b.faces:
             #ui.messageBox('yeyy '+str(i)+'lol '+str(face.centroid.z))
-            if face.centroid.z == 0: # self.headHeight
+            if face.centroid.z == 0:    # self.headHeight
                 #ui.messageBox('yeyy '+str(i)+'lol '+str(self.headHeight))
                 break
             i = i + 1
         face = b.faces.item(i)
 
-
         # Create the joint geometry
-        jointGeometry = adsk.fusion.JointGeometry.createByPlanarFace(face, None, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
+        jointGeometry = adsk.fusion.JointGeometry.createByPlanarFace(
+            face, None, adsk.fusion.JointKeyPointTypes.CenterKeyPoint)
 
         # Create the JointOriginInput
         jointOrigins_ = tmpComp.jointOrgins
@@ -365,14 +383,16 @@ class Screw:
         # Create the JointOrigin
         jointOrigins_.add(jointOriginInput)
         return tmpComp
+
     def sketch(self):
         global textArea, isValid
         isValid = True
         errStr = ""
-        if self.bodyDiameter/2 < self.chamferDistance or self.chamferDistance <= 0:
+        if self.bodyDiameter / 2 < self.chamferDistance or self.chamferDistance <= 0:
             isValid = False
             errStr += "chamfer distance \n"
-        if self.filletRadius < 0 or self.filletRadius >= (self.headDiameter - self.bodyDiameter)/4:
+        if self.filletRadius < 0 or self.filletRadius >= (self.headDiameter -
+                                                          self.bodyDiameter) / 4:
             isValid = False
             errStr += "fillet radius \n"
         if self.hexagonHeight >= self.headHeight:
@@ -381,17 +401,20 @@ class Screw:
         if self.bodyDiameter >= self.headDiameter:
             isValid = False
             errStr += "body diameter \n"
-        if self.hexagonDiameter*2/math.sqrt(3) >= self.headDiameter:
+        if self.hexagonDiameter * 2 / math.sqrt(3) >= self.headDiameter:
             isValid = False
             errStr += "hexagon diameter \n"
-        if self.threadLength > (self.bodyLength - self.chamferDistance - self.filletRadius) or self.threadLength <= 0:
+        if self.threadLength > (self.bodyLength - self.chamferDistance -
+                                self.filletRadius) or self.threadLength <= 0:
             isValid = False
             errStr += "thread length \n"
-        if self.headDiameter < (self.bodyDiameter + 4*self.filletRadius) or math.isclose(self.headDiameter, (self.bodyDiameter + 4*self.filletRadius), rel_tol=1e-09, abs_tol=0.0):
+        if self.headDiameter < (self.bodyDiameter + 4 * self.filletRadius) or math.isclose(
+                self.headDiameter,
+            (self.bodyDiameter + 4 * self.filletRadius), rel_tol=1e-09, abs_tol=0.0):
             isValid = False
             errStr += "head diameter \n"
         if not isValid:
-            textArea = 'wrong input values \n'+errStr
+            textArea = 'wrong input values \n' + errStr
             #args.command.commandInputs.itemById('textBox').text = 'wrong input values \n'+errStr
             #ui.messageBox('wrong input values \n'+errStr,'Component Failed')
             return
@@ -409,30 +432,60 @@ class Screw:
         xzPlane = newComp.xZConstructionPlane
         sketch = sketches.add(xzPlane)
         center = adsk.core.Point3D.create(0, 0, 0)
-        axisLine = sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(0, 1, 0))
+        axisLine = sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0),
+                                                                  adsk.core.Point3D.create(0, 1, 0))
 
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(0, -self.bodyLength , 0))
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, -self.bodyLength, 0), adsk.core.Point3D.create( self.bodyDiameter/2 - self.chamferDistance , -self.bodyLength , 0))
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.bodyDiameter/2 - self.chamferDistance , -self.bodyLength , 0), adsk.core.Point3D.create( self.bodyDiameter/2, -self.bodyLength + self.chamferDistance , 0))
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.bodyDiameter/2, -self.bodyLength + self.chamferDistance , 0), adsk.core.Point3D.create( self.bodyDiameter/2, 0 , 0))
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.bodyDiameter/2, 0 , 0), adsk.core.Point3D.create( self.headDiameter/2, 0 , 0))
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.headDiameter/2, 0 , 0), adsk.core.Point3D.create( self.headDiameter/2, self.headHeight , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(0, -self.bodyLength, 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(0, -self.bodyLength, 0),
+            adsk.core.Point3D.create(self.bodyDiameter / 2 - self.chamferDistance, -self.bodyLength,
+                                     0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(self.bodyDiameter / 2 - self.chamferDistance, -self.bodyLength,
+                                     0),
+            adsk.core.Point3D.create(self.bodyDiameter / 2, -self.bodyLength + self.chamferDistance,
+                                     0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(self.bodyDiameter / 2, -self.bodyLength + self.chamferDistance,
+                                     0), adsk.core.Point3D.create(self.bodyDiameter / 2, 0, 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(self.bodyDiameter / 2, 0, 0),
+            adsk.core.Point3D.create(self.headDiameter / 2, 0, 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(self.headDiameter / 2, 0, 0),
+            adsk.core.Point3D.create(self.headDiameter / 2, self.headHeight, 0))
 
-        x = (self.hexagonDiameter/math.cos(math.radians(30)) - self.hexagonDiameter)/2
+        x = (self.hexagonDiameter / math.cos(math.radians(30)) - self.hexagonDiameter) / 2
 
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.headDiameter/2, self.headHeight , 0), adsk.core.Point3D.create( self.hexagonDiameter/2 + x, self.headHeight , 0))
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.hexagonDiameter/2 + x, self.headHeight , 0), adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - x , 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(self.headDiameter / 2, self.headHeight, 0),
+            adsk.core.Point3D.create(self.hexagonDiameter / 2 + x, self.headHeight, 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(self.hexagonDiameter / 2 + x, self.headHeight, 0),
+            adsk.core.Point3D.create(self.hexagonDiameter / 2, self.headHeight - x, 0))
 
         #Ankathete * tan(a) = Gegenkathete
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - x , 0), adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - self.hexagonHeight , 0))
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( self.hexagonDiameter/2 , self.headHeight - self.hexagonHeight , 0), adsk.core.Point3D.create( 0 , (self.headHeight - self.hexagonHeight + x) - (self.hexagonDiameter/2)*math.tan(math.radians(31)) , 0))
-        sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create( 0 , (self.headHeight - self.hexagonHeight + x) - (self.hexagonDiameter/2)*math.tan(math.radians(31)) , 0), adsk.core.Point3D.create(0, 0, 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(self.hexagonDiameter / 2, self.headHeight - x, 0),
+            adsk.core.Point3D.create(self.hexagonDiameter / 2, self.headHeight - self.hexagonHeight,
+                                     0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(self.hexagonDiameter / 2, self.headHeight - self.hexagonHeight,
+                                     0),
+            adsk.core.Point3D.create(0, (self.headHeight - self.hexagonHeight + x) -
+                                     (self.hexagonDiameter / 2) * math.tan(math.radians(31)), 0))
+        sketch.sketchCurves.sketchLines.addByTwoPoints(
+            adsk.core.Point3D.create(0, (self.headHeight - self.hexagonHeight + x) -
+                                     (self.hexagonDiameter / 2) * math.tan(math.radians(31)), 0),
+            adsk.core.Point3D.create(0, 0, 0))
 
         revolveProfile = sketch.profiles.item(0)
         revolves = newComp.features.revolveFeatures
-        revInput = revolves.createInput(revolveProfile, axisLine, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+        revInput = revolves.createInput(revolveProfile, axisLine,
+                                        adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
 
-        angle = adsk.core.ValueInput.createByReal(math.pi*2)
+        angle = adsk.core.ValueInput.createByReal(math.pi * 2)
         revInput.setAngleExtent(False, angle)
 
         extRevolve = revolves.add(revInput)
@@ -451,13 +504,15 @@ class Screw:
         #cut the hexagon
         sketchHex = sketches.add(planeOne)
         vertices = []
-        hexagonOuterDiameter = self.hexagonDiameter/math.sqrt(3)
+        hexagonOuterDiameter = self.hexagonDiameter / math.sqrt(3)
         for i in range(0, 6):
-            vertex = adsk.core.Point3D.create(center.x + (hexagonOuterDiameter) * math.cos(math.pi * i / 3), center.y + (hexagonOuterDiameter) * math.sin(math.pi * i / 3),0)
+            vertex = adsk.core.Point3D.create(
+                center.x + (hexagonOuterDiameter) * math.cos(math.pi * i / 3),
+                center.y + (hexagonOuterDiameter) * math.sin(math.pi * i / 3), 0)
             vertices.append(vertex)
 
         for i in range(0, 6):
-            sketchHex.sketchCurves.sketchLines.addByTwoPoints(vertices[(i+1) %6], vertices[i])
+            sketchHex.sketchCurves.sketchLines.addByTwoPoints(vertices[(i + 1) % 6], vertices[i])
 
         extrudes = newComp.features.extrudeFeatures
         prof = sketchHex.profiles[0]
@@ -477,7 +532,9 @@ class Screw:
             loops = face.loops
             edgeLoop = None
             for edgeLoop in loops:
-                if(len(edgeLoop.edges) == 1 and (edgeLoop.boundingBox.maxPoint.z == -self.headHeight or edgeLoop.boundingBox.maxPoint.z == 0.0)):
+                if (len(edgeLoop.edges) == 1 and
+                    (edgeLoop.boundingBox.maxPoint.z == -self.headHeight or
+                     edgeLoop.boundingBox.maxPoint.z == 0.0)):
                     edgeCol.add(edgeLoop.edges[0])
                     #ui.messageBox(str(edgeLoop.boundingBox.maxPoint.z))
                     break
@@ -486,9 +543,9 @@ class Screw:
         if self.filletRadius > 0:
             filletFeats = newComp.features.filletFeatures
             filletInput = filletFeats.createInput()
-            filletInput.addConstantRadiusEdgeSet(edgeCol, adsk.core.ValueInput.createByReal(self.filletRadius), True)
+            filletInput.addConstantRadiusEdgeSet(
+                edgeCol, adsk.core.ValueInput.createByReal(self.filletRadius), True)
             filletFeats.add(filletInput)
-
 
         body = extRevolve
 
@@ -497,7 +554,9 @@ class Screw:
         for sF in body.faces:
             #a += str(sF.boundingBox.maxPoint.z) + " " + str(sF.boundingBox.minPoint.z) + " math " + str(math.isclose(sF.boundingBox.maxPoint.z,self.bodyLength - self.chamferDistance, abs_tol=1e-09)) +  "cnt: " + str(cntFaces) + "\n"
             #ui.messageBox(str(sF.boundingBox.maxPoint.z)+ ' a ' +str(sF.boundingBox.minPoint.z) + ' a ' + str(cntFaces))
-            if math.isclose(sF.boundingBox.maxPoint.z,self.bodyLength - self.chamferDistance, abs_tol=1e-09) and not math.isclose(sF.boundingBox.minPoint.z, self.bodyLength):
+            if math.isclose(
+                    sF.boundingBox.maxPoint.z, self.bodyLength - self.chamferDistance,
+                    abs_tol=1e-09) and not math.isclose(sF.boundingBox.minPoint.z, self.bodyLength):
                 #ui.messageBox(str(sF.boundingBox.maxPoint.z)+ ' a ' +str(sF.boundingBox.minPoint.z) + ' a ' + str(cntFaces))
                 break
             cntFaces = cntFaces + 1
@@ -510,9 +569,11 @@ class Screw:
         threads = newComp.features.threadFeatures
         threadDataQuery = threads.threadDataQuery
         defaultThreadType = threadDataQuery.defaultMetricThreadType
-        recommendData = threadDataQuery.recommendThreadData(self.bodyDiameter, False, defaultThreadType)
-        if recommendData[0] :
-            threadInfo = threads.createThreadInfo(False, defaultThreadType, recommendData[1], recommendData[2])
+        recommendData = threadDataQuery.recommendThreadData(self.bodyDiameter, False,
+                                                            defaultThreadType)
+        if recommendData[0]:
+            threadInfo = threads.createThreadInfo(False, defaultThreadType, recommendData[1],
+                                                  recommendData[2])
             faces = adsk.core.ObjectCollection.create()
             faces.add(sideFace)
             threadInput = threads.createInput(faces, threadInfo)
