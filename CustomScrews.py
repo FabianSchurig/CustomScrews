@@ -757,12 +757,9 @@ def run(context):
     # if ui:
     #    ui.messageBox(_('Addin succesfully stopped!'))
 
-    # logging.debug(
-    #     'The command "Create Screw" is successfully added to the create panel in modeling workspace {}'
-    #     .format(app.userId + ":" + app.currentUser.displayName))
-    print('Start')
-    logger = logging.get_logger()    # get the root logger
-    logger.warning('This should go in the file.')
+    logging.debug(
+        'The command "Create Screw" is successfully added to the create panel in modeling workspace {}'
+        .format(app.userId + ":" + app.currentUser.displayName))
     # except:
     #     if ui:
     #         ui.messageBox(_('AddIn Start Failed: {}').format(traceback.format_exc()))
