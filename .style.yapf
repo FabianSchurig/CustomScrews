@@ -1,0 +1,6 @@
+[style]
+# YAPF uses the google style
+based_on_style = google
+spaces_before_comment = 4
+split_before_named_assigns = False
+column_limit = 100

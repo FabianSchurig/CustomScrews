@@ -7,9 +7,13 @@ import adsk.core, adsk.fusion, adsk.cam, traceback, os, gettext
 import math
 import inspect
 import sys
-from .screw import Screw
 
-sys.path.append("./modules")
+_script_path = os.path.abspath(inspect.getfile(inspect.currentframe()))
+_script_dir = os.path.dirname(_script_path)
+_module_dir = os.path.abspath(os.path.join(_script_dir, "modules"))
+sys.path.append(_module_dir)
+
+from .screw import Screw
 import requests
 import logging
 from pathlib import Path
@@ -18,7 +22,7 @@ from pathlib import Path
 _handlers = []
 _app = adsk.core.Application.cast(None)
 _ui = adsk.core.UserInterface.cast(None)
-_host = 'https://adsk.hk-fs.de'  # "http://localhost"
+_host = 'https://adsk.hk-fs.de'    # "http://localhost"
 _command_id = 'createScrewId_blaaa'
 _command_name = 'Create Screw'
 _command_tooltip = 'Create a cylinderhead screw by manipulating different parameters or select preset values.'
@@ -27,37 +31,86 @@ _toolbar_id = 'InsertPanel'
 _logging_directory = 'CustomScrews'
 
 defaultCylinderheadScrewName = 'Screw'
-defaultCylinderheadDiameter = 0.55  # dk
-defaultCylinderheadHeight = 0.3  # k
-defaultHexagonDiameter = 0.25  # s
-defaultHexagonHeight = 0.19  # t
-defaultThreadLength = 0.8  # b
-defaultBodyLength = 1.0  # bodylength
-defaultBodyDiameter = 0.25  # d
-defaultFilletRadius = 0.025  # f
-defaultChamferDistance = 0.025  # c-
+defaultCylinderheadDiameter = 0.55    # dk
+defaultCylinderheadHeight = 0.3    # k
+defaultHexagonDiameter = 0.25    # s
+defaultHexagonHeight = 0.19    # t
+defaultThreadLength = 0.8    # b
+defaultBodyLength = 1.0    # bodylength
+defaultBodyDiameter = 0.25    # d
+defaultFilletRadius = 0.025    # f
+defaultChamferDistance = 0.025    # c-
 
 # {name,d=k,dk,s,t,b,bodylength}
 # ISO 4762/ DIN912
-presets = [{"id": 1, "name": "M2 x8", "body_diameter": 0.2, "head_diameter": 0.38, "head_height": 0.2,
-            "hexagon_diameter": 0.15, "hexagon_height": 0.1, "thread_length": 0.6, "body_length": 0.8},
-           {"id": 2, "name": "M2 x10", "body_diameter": 0.2, "head_diameter": 0.38, "head_height": 0.2,
-            "hexagon_diameter": 0.15, "hexagon_height": 0.1, "thread_length": 0.6, "body_length": 1.0},
-           {"id": 3, "name": "M2 x12", "body_diameter": 0.2, "head_diameter": 0.38, "head_height": 0.2,
-            "hexagon_diameter": 0.15, "hexagon_height": 0.1, "thread_length": 0.6, "body_length": 1.2},
-           {"id": 4, "name": "M3 x8", "body_diameter": 0.3, "head_diameter": 0.568, "head_height": 0.3,
-            "hexagon_diameter": 0.25, "hexagon_height": 0.19, "thread_length": 0.6, "body_length": 0.8},
-           {"id": 5, "name": "M3 x10", "body_diameter": 0.3, "head_diameter": 0.568, "head_height": 0.3,
-            "hexagon_diameter": 0.25, "hexagon_height": 0.19, "thread_length": 0.6, "body_length": 1.0},
-           {"id": 6, "name": "M3 x12", "body_diameter": 0.3, "head_diameter": 0.568, "head_height": 0.3,
-            "hexagon_diameter": 0.25, "hexagon_height": 0.19, "thread_length": 0.6, "body_length": 1.2}]
+presets = [{
+    "id": 1,
+    "name": "M2 x8",
+    "body_diameter": 0.2,
+    "head_diameter": 0.38,
+    "head_height": 0.2,
+    "hexagon_diameter": 0.15,
+    "hexagon_height": 0.1,
+    "thread_length": 0.6,
+    "body_length": 0.8
+}, {
+    "id": 2,
+    "name": "M2 x10",
+    "body_diameter": 0.2,
+    "head_diameter": 0.38,
+    "head_height": 0.2,
+    "hexagon_diameter": 0.15,
+    "hexagon_height": 0.1,
+    "thread_length": 0.6,
+    "body_length": 1.0
+}, {
+    "id": 3,
+    "name": "M2 x12",
+    "body_diameter": 0.2,
+    "head_diameter": 0.38,
+    "head_height": 0.2,
+    "hexagon_diameter": 0.15,
+    "hexagon_height": 0.1,
+    "thread_length": 0.6,
+    "body_length": 1.2
+}, {
+    "id": 4,
+    "name": "M3 x8",
+    "body_diameter": 0.3,
+    "head_diameter": 0.568,
+    "head_height": 0.3,
+    "hexagon_diameter": 0.25,
+    "hexagon_height": 0.19,
+    "thread_length": 0.6,
+    "body_length": 0.8
+}, {
+    "id": 5,
+    "name": "M3 x10",
+    "body_diameter": 0.3,
+    "head_diameter": 0.568,
+    "head_height": 0.3,
+    "hexagon_diameter": 0.25,
+    "hexagon_height": 0.19,
+    "thread_length": 0.6,
+    "body_length": 1.0
+}, {
+    "id": 6,
+    "name": "M3 x12",
+    "body_diameter": 0.3,
+    "head_diameter": 0.568,
+    "head_height": 0.3,
+    "hexagon_diameter": 0.25,
+    "hexagon_height": 0.19,
+    "thread_length": 0.6,
+    "body_length": 1.2
+}]
 lastPresetId = 0
 
 # global set of event handlers to keep them referenced for the duration of the command
 handlers = []
 newComp = None
 rowNumber = 0
-HOST = "https://adsk.hk-fs.de"  # "http://adsk.hk-fs.de" #localhost:5000
+HOST = "https://adsk.hk-fs.de"    # "http://adsk.hk-fs.de" #localhost:5000
 isSaved = True
 lengthSaved = True
 buttonClicked = True
@@ -70,7 +123,8 @@ textArea = ""
 
 def addRow(tableInput, inputs, preset):
     global rowNumber
-    button = inputs.addBoolValueInput(tableInput.id + '_button{}'.format(rowNumber), '', False, './resources/B', False)
+    button = inputs.addBoolValueInput(tableInput.id + '_button{}'.format(rowNumber), '', False,
+                                      './resources/B', False)
     # button.isFullWidth = True
 
     stringInput = inputs.addStringValueInput(tableInput.id + '_stringInput{}'.format(rowNumber), '',
@@ -78,11 +132,13 @@ def addRow(tableInput, inputs, preset):
     stringInput.isReadOnly = True
 
     s = ''
-    if 'body_length' in preset.keys() and (preset['body_length'] is not None) and preset['body_length'] != 'null':
+    if 'body_length' in preset.keys() and (preset['body_length']
+                                           is not None) and preset['body_length'] != 'null':
         s = str(preset['body_length'] * 10) + " mm"
     else:
         s = 'None'
-    bodyLength = inputs.addStringValueInput(tableInput.id + '_bodyLength{}'.format(rowNumber), '', str(s))
+    bodyLength = inputs.addStringValueInput(tableInput.id + '_bodyLength{}'.format(rowNumber), '',
+                                            str(s))
     bodyLength.isReadOnly = True
 
     row = tableInput.rowCount
@@ -96,7 +152,7 @@ def addRow(tableInput, inputs, preset):
 def getPresetParameters():
     global HOST
     try:
-        r = requests.get(HOST + "/user/all/screws/")  # http://adsk.hk-fs.de localhost:5000
+        r = requests.get(HOST + "/user/all/screws/")    # http://adsk.hk-fs.de localhost:5000
         return r.json()
     except:
         return None
@@ -106,7 +162,8 @@ def getPresetParametersByUserId(userId):
     # app.currentUser.displayName
     global HOST
     try:
-        r = requests.get(HOST + "/user/" + userId + "/screws/")  # http://adsk.hk-fs.de localhost:5000
+        r = requests.get(HOST + "/user/" + userId +
+                         "/screws/")    # http://adsk.hk-fs.de localhost:5000
         return r.json()
     except:
         return None
@@ -149,6 +206,7 @@ def publishScrewLength(screwId, payload):
         return r.json()
     except:
         return None
+
 
 '''
 Support localization
@@ -222,19 +280,24 @@ class InputChangedHandler(adsk.core.InputChangedEventHandler):
                 # s.id,name,body_diameter,head_diameter,head_height,hexagon_diameter,hexagon_height,thread_length,body_length
                 # ui.messageBox(str(presets[int(preset)]['id']))
                 inputs.itemById('id').value = str(presets[int(preset)]['id'])
-                inputs.itemById('screwName').value = presets[int(preset)]['name']  # 1
-                inputs.itemById('bodyDiameter').value = presets[int(preset)]['body_diameter']  # 2
-                inputs.itemById('headDiameter').value = presets[int(preset)]['head_diameter']  # 3
-                inputs.itemById('headHeight').value = presets[int(preset)]['head_height']  # 4
-                inputs.itemById('hexagonDiameter').value = presets[int(preset)]['hexagon_diameter']  # 5
-                inputs.itemById('hexagonHeight').value = presets[int(preset)]['hexagon_height']  # 6
-                if presets[int(preset)]['thread_length'] == None or presets[int(preset)][
-                    'body_length'] == None:  # 8
-                    inputs.itemById('threadLength').value = presets[int(preset)]['head_height'] * 5 - 0.2  # 4
-                    inputs.itemById('bodyLength').value = presets[int(preset)]['head_height'] * 5  # 4
+                inputs.itemById('screwName').value = presets[int(preset)]['name']    # 1
+                inputs.itemById('bodyDiameter').value = presets[int(preset)]['body_diameter']    # 2
+                inputs.itemById('headDiameter').value = presets[int(preset)]['head_diameter']    # 3
+                inputs.itemById('headHeight').value = presets[int(preset)]['head_height']    # 4
+                inputs.itemById('hexagonDiameter').value = presets[int(preset)][
+                    'hexagon_diameter']    # 5
+                inputs.itemById('hexagonHeight').value = presets[int(preset)][
+                    'hexagon_height']    # 6
+                if presets[int(preset)]['thread_length'] == None or presets[int(
+                        preset)]['body_length'] == None:    # 8
+                    inputs.itemById(
+                        'threadLength').value = presets[int(preset)]['head_height'] * 5 - 0.2    # 4
+                    inputs.itemById(
+                        'bodyLength').value = presets[int(preset)]['head_height'] * 5    # 4
                 else:
-                    inputs.itemById('threadLength').value = presets[int(preset)]['thread_length']  # 7
-                    inputs.itemById('bodyLength').value = presets[int(preset)]['body_length']  # 8
+                    inputs.itemById('threadLength').value = presets[int(preset)][
+                        'thread_length']    # 7
+                    inputs.itemById('bodyLength').value = presets[int(preset)]['body_length']    # 8
                     lastThreadLength = presets[int(preset)]['thread_length']
                     lastBodyLength = presets[int(preset)]['body_length']
 
@@ -246,15 +309,20 @@ class InputChangedHandler(adsk.core.InputChangedEventHandler):
             preset = inputs.itemById('dropdownPresets')
             if preset.selectedItem.index > 0 and preset.selectedItem.index <= len(
                     presets) and preset.selectedItem.index != lastPresetId:
-                inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index - 1]['body_diameter']
-                inputs.itemById('headDiameter').value = presets[preset.selectedItem.index - 1]['head_diameter']
-                inputs.itemById('headHeight').value = presets[preset.selectedItem.index - 1]['head_height']
-                inputs.itemById('hexagonDiameter').value = presets[preset.selectedItem.index - 1][
-                    'hexagon_diameter']
-                inputs.itemById('hexagonHeight').value = presets[preset.selectedItem.index - 1][
-                    'hexagon_height']
-                inputs.itemById('threadLength').value = presets[preset.selectedItem.index - 1]['thread_length']
-                inputs.itemById('bodyLength').value = presets[preset.selectedItem.index - 1]['body_length']
+                inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index -
+                                                                1]['body_diameter']
+                inputs.itemById('headDiameter').value = presets[preset.selectedItem.index -
+                                                                1]['head_diameter']
+                inputs.itemById('headHeight').value = presets[preset.selectedItem.index -
+                                                              1]['head_height']
+                inputs.itemById('hexagonDiameter').value = presets[preset.selectedItem.index -
+                                                                   1]['hexagon_diameter']
+                inputs.itemById('hexagonHeight').value = presets[preset.selectedItem.index -
+                                                                 1]['hexagon_height']
+                inputs.itemById('threadLength').value = presets[preset.selectedItem.index -
+                                                                1]['thread_length']
+                inputs.itemById('bodyLength').value = presets[preset.selectedItem.index -
+                                                              1]['body_length']
                 screwId = presets[preset.selectedItem.index - 1]['id']
                 lastThreadLength = presets[preset.selectedItem.index - 1]['thread_length']
                 lastBodyLength = presets[preset.selectedItem.index - 1]['body_length']
@@ -273,12 +341,12 @@ class InputChangedHandler(adsk.core.InputChangedEventHandler):
             # ui.messageBox('asasas '+str(inputs.itemById('bodyDiameter').value))
             args.isValidResult = True
 
-
         except Exception as e:
             logging.error(f'InputChangedHandler {e}')
 
 
 class CommandExecutePreviewHandler(adsk.core.CommandEventHandler):
+
     def __init__(self):
         super().__init__()
 
@@ -337,16 +405,22 @@ class CommandExecutePreviewHandler(adsk.core.CommandEventHandler):
                     if buttonClicked != input.value:
                         textArea = "Start saving Screw ..."
                         inputs.itemById('textBox').text = textArea
-                        registerUser({"userId": app.currentUser.userId, "email": app.currentUser.email,
-                                      "display_name": app.currentUser.displayName,
-                                      "name": app.currentUser.userName})
+                        registerUser({
+                            "userId": app.currentUser.userId,
+                            "email": app.currentUser.email,
+                            "display_name": app.currentUser.displayName,
+                            "name": app.currentUser.userName
+                        })
                         if screwId:
-                            s = putScrewByUserId(app.currentUser.userId, screwId,
-                                                 {'name': screw.screwName, 'body_diameter': screw.bodyDiameter,
-                                                  'head_diameter': screw.headDiameter,
-                                                  'head_height': screw.headHeight,
-                                                  'hexagon_diameter': screw.hexagonDiameter,
-                                                  'hexagon_height': screw.hexagonHeight})
+                            s = putScrewByUserId(
+                                app.currentUser.userId, screwId, {
+                                    'name': screw.screwName,
+                                    'body_diameter': screw.bodyDiameter,
+                                    'head_diameter': screw.headDiameter,
+                                    'head_height': screw.headHeight,
+                                    'hexagon_diameter': screw.hexagonDiameter,
+                                    'hexagon_height': screw.hexagonHeight
+                                })
                             if s:
                                 textArea = textArea + "\nSaved new Screw."
                                 inputs.itemById('textBox').text = textArea
@@ -355,12 +429,15 @@ class CommandExecutePreviewHandler(adsk.core.CommandEventHandler):
                                 inputs.itemById('textBox').text = textArea
                                 buttonClicked = input.value
                         else:
-                            s = publishScrewByUserId(app.currentUser.userId, {'name': screw.screwName,
-                                                                              'body_diameter': screw.bodyDiameter,
-                                                                              'head_diameter': screw.headDiameter,
-                                                                              'head_height': screw.headHeight,
-                                                                              'hexagon_diameter': screw.hexagonDiameter,
-                                                                              'hexagon_height': screw.hexagonHeight})
+                            s = publishScrewByUserId(
+                                app.currentUser.userId, {
+                                    'name': screw.screwName,
+                                    'body_diameter': screw.bodyDiameter,
+                                    'head_diameter': screw.headDiameter,
+                                    'head_height': screw.headHeight,
+                                    'hexagon_diameter': screw.hexagonDiameter,
+                                    'hexagon_height': screw.hexagonHeight
+                                })
                             if s:
                                 inputs.itemById('id').value = str(s['iso_4762']['id'])
                                 screwId = str(s['iso_4762']['id'])
@@ -394,23 +471,30 @@ class CommandExecutePreviewHandler(adsk.core.CommandEventHandler):
                         textArea = "Save length of Screw ..."
                         inputs.itemById('textBox').text = textArea
                         # ui.messageBox(str(s['iso_4762']['id']))
-                        s = publishScrewLength(screwId, {"thread_length": screw.threadLength,
-                                                         "body_length": screw.bodyLength})
+                        s = publishScrewLength(screwId, {
+                            "thread_length": screw.threadLength,
+                            "body_length": screw.bodyLength
+                        })
                         if s:
                             # add row to table
                             table = inputs.itemById('presetTable')
 
-                            preset = {'id': screwId, 'name': screw.screwName,
-                                      'body_diameter': screw.bodyDiameter, 'head_diameter': screw.headDiameter,
-                                      'head_height': screw.headHeight,
-                                      'hexagon_diameter': screw.hexagonDiameter,
-                                      'hexagon_height': screw.hexagonHeight,
-                                      'thread_length': screw.threadLength, 'body_length': screw.bodyLength}
+                            preset = {
+                                'id': screwId,
+                                'name': screw.screwName,
+                                'body_diameter': screw.bodyDiameter,
+                                'head_diameter': screw.headDiameter,
+                                'head_height': screw.headHeight,
+                                'hexagon_diameter': screw.hexagonDiameter,
+                                'hexagon_height': screw.hexagonHeight,
+                                'thread_length': screw.threadLength,
+                                'body_length': screw.bodyLength
+                            }
                             presets.append(preset)
                             addRow(table, inputs, preset)
                             textArea = "Added new row for Screw ID: " + str(
                                 screwId) + "\nThread Length: " + str(
-                                screw.threadLength) + "\nBody Length: " + str(screw.bodyLength)
+                                    screw.threadLength) + "\nBody Length: " + str(screw.bodyLength)
                             inputs.itemById('textBox').text = textArea
                             lengthSaved = True
 
@@ -431,6 +515,7 @@ class CommandExecutePreviewHandler(adsk.core.CommandEventHandler):
 
 
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
+
     def __init__(self):
         super().__init__()
 
@@ -466,12 +551,13 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
 
             screw.sketch()
             args.isValidResult = True
-            # ui.messageBox(_('command: {} executed successfully').format(eventArgs.command.parentCommandDefinition.id))
+            logging.debug(_('command: {} executed successfully').format(eventArgs.command.parentCommandDefinition.id))
         except Exception as e:
             logging.error(f'CommandExecuteHandler {e}')
 
 
 class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
+
     def __init__(self):
         super().__init__()
 
@@ -489,7 +575,8 @@ class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
             logging.info('creating panel')
 
             fetchedPresets = ""
-            textArea = 'Database connection failed! ' + str(len(presets)) + ' offline presets loaded'
+            textArea = 'Database connection failed! ' + str(
+                len(presets)) + ' offline presets loaded'
             # load Presets
             r = getPresetParametersByUserId(app.currentUser.userId)
 
@@ -519,8 +606,8 @@ class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
                 addRow(table, inputs, preset)
 
             # Create dropdown input with radio style
-            dropdownInputPreset = inputs.addDropDownCommandInput('dropdownPresets', 'Presets',
-                                                                    adsk.core.DropDownStyles.LabeledIconDropDownStyle)
+            dropdownInputPreset = inputs.addDropDownCommandInput(
+                'dropdownPresets', 'Presets', adsk.core.DropDownStyles.LabeledIconDropDownStyle)
             dropdownItems = dropdownInputPreset.listItems
             dropdownItems.add('Default', True, '')
             for preset in presets:
@@ -532,7 +619,7 @@ class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
             trInput.isReadOnly = True
 
             selectionInput = inputs.addSelectionInput('jointSelection', 'Select Joins',
-                                                        'Select origins to join')
+                                                      'Select origins to join')
             selectionInput.setSelectionLimits(0)
             selectionInput.addSelectionFilter('JointOrigins')
             selectionInput.addSelectionFilter('SketchPoints')
@@ -541,7 +628,8 @@ class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
             selectionInput.addSelectionFilter('CircularEdges')
 
             initBodyLength = adsk.core.ValueInput.createByReal(defaultBodyLength)
-            bodyLength = inputs.addDistanceValueCommandInput('bodyLength', 'Body Length', initBodyLength)
+            bodyLength = inputs.addDistanceValueCommandInput('bodyLength', 'Body Length',
+                                                             initBodyLength)
             point = adsk.core.Point3D.create(0, 0, defaultCylinderheadHeight)
             direction = adsk.core.Vector3D.create(0, 0, 1)
             manipulator = bodyLength.setManipulator(point, direction)
@@ -565,22 +653,26 @@ class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
             groupChildInputs.addValueInput('headHeight', 'Head Height', 'mm', initHeadHeight)
 
             initHexagonDiameter = adsk.core.ValueInput.createByReal(defaultHexagonDiameter)
-            groupChildInputs.addValueInput('hexagonDiameter', 'Hexagon Diameter', 'mm', initHexagonDiameter)
+            groupChildInputs.addValueInput('hexagonDiameter', 'Hexagon Diameter', 'mm',
+                                           initHexagonDiameter)
 
             initHexagonHeight = adsk.core.ValueInput.createByReal(defaultHexagonHeight)
-            groupChildInputs.addValueInput('hexagonHeight', 'Hexagon Height', 'mm', initHexagonHeight)
+            groupChildInputs.addValueInput('hexagonHeight', 'Hexagon Height', 'mm',
+                                           initHexagonHeight)
 
             initFilletRadius = adsk.core.ValueInput.createByReal(defaultFilletRadius)
             groupChildInputs.addValueInput('filletRadius', 'Fillet Radius', 'mm', initFilletRadius)
 
             initChamferDistance = adsk.core.ValueInput.createByReal(defaultChamferDistance)
-            groupChildInputs.addValueInput('chamferDistance', 'Chamfer Distance', 'mm', initChamferDistance)
+            groupChildInputs.addValueInput('chamferDistance', 'Chamfer Distance', 'mm',
+                                           initChamferDistance)
 
-            buttonSave = groupChildInputs.addBoolValueInput('buttonSave', ' Save Current Screw ', False, '',
-                                                            True)
+            buttonSave = groupChildInputs.addBoolValueInput('buttonSave', ' Save Current Screw ',
+                                                            False, '', True)
             buttonSave.isFullWidth = True
 
-            buttonNew = groupChildInputs.addBoolValueInput('buttonNew', ' Create New Screw ', False, '', True)
+            buttonNew = groupChildInputs.addBoolValueInput('buttonNew', ' Create New Screw ', False,
+                                                           '', True)
             buttonNew.isFullWidth = True
 
             textBox = inputs.addTextBoxCommandInput('textBox', 'Status', fetchedPresets, 5, True)
@@ -600,7 +692,6 @@ class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
             handlers.append(onExecute)
             handlers.append(onInputChanged)
             handlers.append(onPreview)
-
             '''
             selInput = commandInputs_.addSelectionInput(selectionInputId, _('Selection'), _('Select one'))
             selInput.addSelectionFilter('PlanarFaces')
@@ -612,7 +703,7 @@ class CommandCreatedEventHandlerPanel(adsk.core.CommandCreatedEventHandler):
             dropDownItems_.add(_('ListItem 3'), False)
             '''
 
-            # ui.messageBox('Panel command created successfully')
+            logging.debug('Panel command created successfully')
         except Exception as e:
             logging.error(e)
 
@@ -626,11 +717,13 @@ def run(context):
     screw = None
 
     Path.home().joinpath(_logging_directory).mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(filename=Path.home().joinpath(_logging_directory).joinpath('custom_screws.log'), filemode='w', level=logging.DEBUG)
+    logging.basicConfig(
+        filename=Path.home().joinpath(_logging_directory).joinpath('custom_screws.log'),
+        filemode='w', level=logging.DEBUG)
 
     app = adsk.core.Application.get()
     ui = app.userInterface
-    
+
     # global _
     # _ = getLocStrings()
 
@@ -644,9 +737,8 @@ def run(context):
     # Add a command that displays the panel.
     show_screw_cmd_def = ui.commandDefinitions.itemById(_command_id)
     if not show_screw_cmd_def:
-        show_screw_cmd_def = ui.commandDefinitions.addButtonDefinition(_command_id, _command_name,
-                                                                        _command_tooltip,
-                                                                        _command_resource_folder)
+        show_screw_cmd_def = ui.commandDefinitions.addButtonDefinition(
+            _command_id, _command_name, _command_tooltip, _command_resource_folder)
         # show_screw_cmd_def.toolClipFilename = './resources/technical_small.png'
         # Connect to Command Created event.
         on_command_created = CommandCreatedEventHandlerPanel()
@@ -662,9 +754,12 @@ def run(context):
         button_control.isPromotedByDefault = True
         button_control.isPromoted = True
 
-    # ui.messageBox(
-    #     'The command "Create Screw" is successfully added to the create panel in modeling workspace {}'.format(
-    #         app.userId + ":" + app.currentUser.displayName))
+    # if ui:
+    #    ui.messageBox(_('Addin succesfully stopped!'))
+
+    logging.debug(
+        'The command "Create Screw" is successfully added to the create panel in modeling workspace {}'
+        .format(app.userId + ":" + app.currentUser.displayName))
     # except:
     #     if ui:
     #         ui.messageBox(_('AddIn Start Failed: {}').format(traceback.format_exc()))
@@ -690,9 +785,9 @@ def stop(context):
         if cmd_def:
             cmd_def.deleteMe()
 
-
         # throws AddIn start failed?
         # if ui:
         #    ui.messageBox(_('Addin succesfully stopped!'))
+        logging.info('Addin succesfully stopped!')
     except Exception as e:
         logging.error(f'AddIn Stop Failed: {e}')
