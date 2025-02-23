@@ -1,3 +1,4 @@
+import traceback
 import adsk.core
 import os
 import gettext
@@ -523,76 +524,60 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
         inputs = eventArgs.firingEvent.sender.commandInputs
         defaultUnits = unitsMgr.defaultLengthUnits
 
+        futil.log(f'Input changed: {changedInput.id}')
+
         tableInput = inputs.itemById('presetTable')
         if tableInput.id + '_button' in cmdInput.id:
             preset = str(cmdInput.id).replace(tableInput.id + '_button', "")
-            # ui.messageBox(preset)
-            # s.id,name,body_diameter,head_diameter,head_height,hexagon_diameter,hexagon_height,thread_length,body_length
-            # ui.messageBox(str(presets[int(preset)]['id']))
-            inputs.itemById('id').value = str(presets[int(preset)]['id'])
-            inputs.itemById('screwName').value = presets[int(preset)]['name']    # 1
-            inputs.itemById('bodyDiameter').value = presets[int(preset)]['body_diameter']    # 2
-            inputs.itemById('headDiameter').value = presets[int(preset)]['head_diameter']    # 3
-            inputs.itemById('headHeight').value = presets[int(preset)]['head_height']    # 4
-            inputs.itemById('hexagonDiameter').value = presets[int(preset)][
-                'hexagon_diameter']    # 5
-            inputs.itemById('hexagonHeight').value = presets[int(preset)][
-                'hexagon_height']    # 6
-            if presets[int(preset)]['thread_length'] == None or presets[int(
-                    preset)]['body_length'] == None:    # 8
-                inputs.itemById(
-                    'threadLength').value = presets[int(preset)]['head_height'] * 5 - 0.2    # 4
-                inputs.itemById(
-                    'bodyLength').value = presets[int(preset)]['head_height'] * 5    # 4
+            futil.log(f'Preset button clicked: {preset}')
+            futil.log(f'Preset: {presets[int(preset)]}')
+
+            preset_obj = presets[int(preset)]
+            inputs.itemById('id').value = str(preset_obj.id)
+            inputs.itemById('screwName').value = preset_obj.name
+            inputs.itemById('bodyDiameter').value = preset_obj.parameters['body_diameter']
+            inputs.itemById('headDiameter').value = preset_obj.parameters['head_diameter']
+            inputs.itemById('headHeight').value = preset_obj.parameters['head_height']
+            inputs.itemById('hexagonDiameter').value = preset_obj.parameters['hexagon_diameter']
+            inputs.itemById('hexagonHeight').value = preset_obj.parameters['hexagon_height']
+            if preset_obj.parameters['thread_length'] is None or preset_obj.parameters['body_length'] is None:
+                inputs.itemById('threadLength').value = preset_obj.parameters['head_height'] * 5 - 0.2
+                inputs.itemById('bodyLength').value = preset_obj.parameters['head_height'] * 5
             else:
-                inputs.itemById('threadLength').value = presets[int(preset)][
-                    'thread_length']    # 7
-                inputs.itemById('bodyLength').value = presets[int(preset)]['body_length']    # 8
-                lastThreadLength = presets[int(preset)]['thread_length']
-                lastBodyLength = presets[int(preset)]['body_length']
+                inputs.itemById('threadLength').value = preset_obj.parameters['thread_length']
+                inputs.itemById('bodyLength').value = preset_obj.parameters['body_length']
+                lastThreadLength = preset_obj.parameters['thread_length']
+                lastBodyLength = preset_obj.parameters['body_length']
 
             isSaved = True
             lengthSaved = True
-            screwId = str(presets[int(preset)]['id'])
+            screwId = str(preset_obj.id)
 
         global lastPresetId
         preset = inputs.itemById('dropdownPresets')
-        if preset.selectedItem.index > 0 and preset.selectedItem.index <= len(
-                presets) and preset.selectedItem.index != lastPresetId:
-            inputs.itemById('bodyDiameter').value = presets[preset.selectedItem.index -
-                                                            1]['body_diameter']
-            inputs.itemById('headDiameter').value = presets[preset.selectedItem.index -
-                                                            1]['head_diameter']
-            inputs.itemById('headHeight').value = presets[preset.selectedItem.index -
-                                                            1]['head_height']
-            inputs.itemById('hexagonDiameter').value = presets[preset.selectedItem.index -
-                                                                1]['hexagon_diameter']
-            inputs.itemById('hexagonHeight').value = presets[preset.selectedItem.index -
-                                                                1]['hexagon_height']
-            inputs.itemById('threadLength').value = presets[preset.selectedItem.index -
-                                                            1]['thread_length']
-            inputs.itemById('bodyLength').value = presets[preset.selectedItem.index -
-                                                            1]['body_length']
+        if preset.selectedItem.index > 0 and preset.selectedItem.index <= len(presets) and preset.selectedItem.index != lastPresetId:
+            futil.log(f'Preset dropdown changed: {preset.selectedItem.index}')
+            preset_dict = presets[preset.selectedItem.index - 1].to_dict()
+            inputs.itemById('bodyDiameter').value = preset_dict['body_diameter']
+            inputs.itemById('headDiameter').value = preset_dict['head_diameter']
+            inputs.itemById('headHeight').value = preset_dict['head_height']
+            inputs.itemById('hexagonDiameter').value = preset_dict['hexagon_diameter']
+            inputs.itemById('hexagonHeight').value = preset_dict['hexagon_height']
+            inputs.itemById('threadLength').value = preset_dict['thread_length']
+            inputs.itemById('bodyLength').value = preset_dict['body_length']
             screwId = presets[preset.selectedItem.index - 1]['id']
             lastThreadLength = presets[preset.selectedItem.index - 1]['thread_length']
             lastBodyLength = presets[preset.selectedItem.index - 1]['body_length']
-            # ui.messageBox('input changed '+str(lastPresetId) +' '+str(preset.selectedItem.index)+' '+str(inputs.itemById('bodyDiameter').value))
 
         point = adsk.core.Point3D.create(0, 0, inputs.itemById('headHeight').value)
         direction = adsk.core.Vector3D.create(0, 0, 1)
-        # ui.messageBox(str(inputs.itemById('bodyLength')))
         manipulator = inputs.itemById('bodyLength').setManipulator(point, direction)
 
-        # if cmdInput.id == inputs.itemById('jointSelection').id:
-        # ui.messageBox("new selected item")
-        # ui.messageBox(str(inputs.itemById('jointSelection').selection(0).entity))
-
         lastPresetId = preset.selectedItem.index
-        # ui.messageBox('asasas '+str(inputs.itemById('bodyDiameter').value))
         args.isValidResult = True
 
     except Exception as e:
-        futil.log(f'InputChangedHandler {e}')
+        futil.log(f'InputChangedHandler {e}\n{traceback.format_exc()}')
 
     # General logging for debug.
     futil.log(f'{CMD_NAME} Input Changed Event fired from a change to {changed_input.id}')
