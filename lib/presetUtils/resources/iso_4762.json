@@ -5311,34 +5311,5 @@
         "hexagon_diameter": 5.5,
         "hexagon_height": 2.75,
         "thread_length": 35.8
-    },
-    {
-        "id": "6e8761b4-ff5b-45c4-9ec9-ebff4c223f24",
-        "name": "Screw 2",
-        "body_diameter": 0.25,
-        "head_diameter": 0.55,
-        "head_height": 0.30000000000000004,
-        "hexagon_diameter": 0.25,
-        "hexagon_height": 0.19
-    },
-    {
-        "id": "470da173-5e98-41f8-a1dd-98aeb5f21e2b",
-        "name": "Screw 2",
-        "body_diameter": 0.25,
-        "head_diameter": 0.55,
-        "head_height": 0.30000000000000004,
-        "hexagon_diameter": 0.25,
-        "hexagon_height": 0.19
-    },
-    {
-        "id": "48a20a94-dc90-49a0-8135-a7f86dfc50cc",
-        "name": "Screw 2",
-        "body_diameter": 0.25,
-        "head_diameter": 0.55,
-        "head_height": 0.30000000000000004,
-        "hexagon_diameter": 0.25,
-        "hexagon_height": 0.19,
-        "thread_length": 0.8,
-        "body_length": 1.2000000000000002
     }
 ]

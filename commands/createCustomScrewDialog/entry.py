@@ -49,8 +49,6 @@ lastPresetId = 0
 # global set of event handlers to keep them referenced for the duration of the command
 handlers = []
 newComp = None
-rowNumber = 0
-HOST = "https://adsk.hk-fs.de"    # "http://adsk.hk-fs.de" #localhost:5000
 isSaved = True
 lengthSaved = True
 buttonClicked = True
@@ -63,8 +61,7 @@ presets = []
 screw = None
 
 
-def addRow(tableInput, inputs, preset):
-    global rowNumber
+def addRow(tableInput, inputs, preset, rowNumber):
     preset = preset.to_dict()
     button = inputs.addBoolValueInput(tableInput.id + '_button{}'.format(rowNumber), '', False,
                                       os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources', 'B'), False)
@@ -88,8 +85,6 @@ def addRow(tableInput, inputs, preset):
     tableInput.addCommandInput(button, row, 0)
     tableInput.addCommandInput(stringInput, row, 1)
     tableInput.addCommandInput(bodyLength, row, 2)
-
-    rowNumber = rowNumber + 1
 
 '''
 Support localization
@@ -198,8 +193,6 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
         cmd.isRepeatable = False
         cmd.helpFile = 'help.html'
         global presets
-        global rowNumber
-        rowNumber = 0
         futil.log('creating panel')
 
         fetchedPresets = ""
@@ -232,8 +225,8 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
         table.tablePresentationStyle = adsk.core.TablePresentationStyles.itemBorderTablePresentationStyle
         table.hasGrid = False
 
-        for preset in presets:
-            addRow(table, inputs, preset)
+        for i, preset in enumerate(presets):
+            addRow(table, inputs, preset, i)
 
         # Create dropdown input with radio style
         dropdownInputPreset = inputs.addDropDownCommandInput(
@@ -377,7 +370,7 @@ def command_execute(args: adsk.core.CommandEventArgs):
 def command_preview(args: adsk.core.CommandEventArgs):
     # General logging for debug.
     futil.log(f'{CMD_NAME} Command Preview Event')
-    global screw, screwId, presets, isSaved, lengthSaved, buttonClicked, buttonNewClicked, lastBodyLength, lastThreadLength, textArea, rowNumber, newComp
+    global screw, screwId, presets, isSaved, lengthSaved, buttonClicked, buttonNewClicked, lastBodyLength, lastThreadLength, textArea, newComp
     try:
         unitsMgr = app.activeProduct.unitsManager
         inputs = args.command.commandInputs
@@ -453,12 +446,11 @@ def handle_button_save(inputs, screw, screwId, lengthSaved):
         screwId = save_new_preset(preset_manager, screw, inputs)
         lengthSaved = False
 
-    refresh_preset_table(preset_manager, inputs)
-
     if not lengthSaved and screwId:
         save_screw_length(preset_manager, screwId, screw, inputs)
         lengthSaved = True
 
+    refresh_preset_table(preset_manager, inputs)
 
 def update_existing_preset(preset_manager, screwId, screw, inputs):
     futil.log(f"Updating existing preset with ID: {screwId}")
@@ -501,10 +493,11 @@ def refresh_preset_table(preset_manager, inputs):
     futil.log("Refreshing preset table")
     table = inputs.itemById('presetTable')
     table.clear()
+    global presets
     presets = preset_manager.presets
 
-    for preset in presets:
-        addRow(table, inputs, preset)
+    for i, preset in enumerate(presets):
+        addRow(table, inputs, preset, i)
     futil.log("Preset table refreshed")
 
 
@@ -518,11 +511,8 @@ def save_screw_length(preset_manager, screwId, screw, inputs):
         body_length=screw.bodyLength
     )
 
-    table = inputs.itemById('presetTable')
-    preset = preset_manager.get_preset_by_id(screwId)
-    addRow(table, inputs, preset)
-    update_text_area(inputs, f"Added new row for Screw ID: {screwId}\nThread Length: {screw.threadLength}\nBody Length: {screw.bodyLength}")
-    futil.log(f"Added new row for Screw ID: {screwId}")
+    update_text_area(inputs, f"Updated length for Screw ID: {screwId}\nThread Length: {screw.threadLength}\nBody Length: {screw.bodyLength}")
+    futil.log(f"Updated length for Screw ID: {screwId}")
 
 
 def update_text_area(inputs, message):
@@ -536,7 +526,7 @@ def update_text_area(inputs, message):
 def command_input_changed(args: adsk.core.InputChangedEventArgs):
     changed_input = args.input
     inputs = args.inputs
-    global screw, isSaved, lengthSaved, screwId, lastThreadLength, lastBodyLength
+    global screw, isSaved, lengthSaved, screwId, lastThreadLength, lastBodyLength, presets
     try:
         eventArgs = adsk.core.InputChangedEventArgs.cast(args)
         changedInput = eventArgs.input
@@ -553,7 +543,11 @@ def command_input_changed(args: adsk.core.InputChangedEventArgs):
         if tableInput.id + '_button' in cmdInput.id:
             preset = str(cmdInput.id).replace(tableInput.id + '_button', "")
             futil.log(f'Preset button clicked: {preset}')
-            futil.log(f'Preset: {presets[int(preset)]}')
+            if int(preset) < len(presets):
+                futil.log(f'Preset: {presets[int(preset)]}')
+            else:
+                futil.log(f'Preset index {preset} out of range')
+                return
 
             preset_obj = presets[int(preset)]
             inputs.itemById('id').value = str(preset_obj.id)
