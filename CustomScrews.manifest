@@ -9,5 +9,6 @@
 	"version":	"1.4.0",
 	"runOnStartup":	true,
 	"supportedOS":	"windows|mac",
-	"editEnabled":	true
+	"editEnabled":	true,
+	"license": "MIT"
 }

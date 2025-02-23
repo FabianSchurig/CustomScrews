@@ -47,3 +47,7 @@ __Chamfer Distance:__ distance of the 45degree chamfer on the body shaft
 
 * auto-placement of a kind of screws to selectable joint origins
 * verification of depending parameters
+
+### License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
