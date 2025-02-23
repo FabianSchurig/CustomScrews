@@ -441,31 +441,31 @@ def command_preview(args: adsk.core.CommandEventArgs):
 
 
 def handle_button_save(inputs, screw, screwId, lengthSaved):
-
+    futil.log("Start saving Screw ...")
     textArea = "Start saving Screw ..."
     inputs.itemById('textBox').text = textArea
 
     preset_manager = presetutils.PresetManagerBuilder().get_managers()[0]
 
     if screwId:
-        preset = preset_manager.get_preset_by_id(screwId)
-        if preset:
-            preset_manager.update_preset(
-                screwId,
-                name=screw.screwName,
-                body_diameter=screw.bodyDiameter,
-                head_diameter=screw.headDiameter,
-                head_height=screw.headHeight,
-                hexagon_diameter=screw.hexagonDiameter,
-                hexagon_height=screw.hexagonHeight
-            )
-            textArea = textArea + "\nSaved existing Screw."
-            inputs.itemById('textBox').text = textArea
-        else:
-            textArea = textArea + "\nPreset not found."
-            inputs.itemById('textBox').text = textArea
+        update_existing_preset(preset_manager, screwId, screw, inputs)
     else:
-        new_preset = presetutils.Preset(
+        screwId = save_new_preset(preset_manager, screw, inputs)
+        lengthSaved = False
+
+    refresh_preset_table(preset_manager, inputs)
+
+    if not lengthSaved and screwId:
+        save_screw_length(preset_manager, screwId, screw, inputs)
+        lengthSaved = True
+
+
+def update_existing_preset(preset_manager, screwId, screw, inputs):
+    futil.log(f"Updating existing preset with ID: {screwId}")
+    preset = preset_manager.get_preset_by_id(screwId)
+    if preset:
+        preset_manager.update_preset(
+            screwId,
             name=screw.screwName,
             body_diameter=screw.bodyDiameter,
             head_diameter=screw.headDiameter,
@@ -473,40 +473,63 @@ def handle_button_save(inputs, screw, screwId, lengthSaved):
             hexagon_diameter=screw.hexagonDiameter,
             hexagon_height=screw.hexagonHeight
         )
-        preset_manager.add_preset(new_preset)
-        inputs.itemById('id').value = new_preset.id
-        screwId = new_preset.id
-        isSaved = True
-        lengthSaved = False
-        textArea = textArea + "\nSaved new Screw."
-        inputs.itemById('textBox').text = textArea
+        update_text_area(inputs, "Saved existing Screw.")
+        futil.log("Saved existing Screw.")
+    else:
+        update_text_area(inputs, "Preset not found.")
+        futil.log("Preset not found.")
 
+
+def save_new_preset(preset_manager, screw, inputs):
+    futil.log("Saving new preset")
+    new_preset = presetutils.Preset(
+        name=screw.screwName,
+        body_diameter=screw.bodyDiameter,
+        head_diameter=screw.headDiameter,
+        head_height=screw.headHeight,
+        hexagon_diameter=screw.hexagonDiameter,
+        hexagon_height=screw.hexagonHeight
+    )
+    preset_manager.add_preset(new_preset)
+    inputs.itemById('id').value = new_preset.id
+    update_text_area(inputs, "Saved new Screw.")
+    futil.log(f"Saved new Screw with ID: {new_preset.id}")
+    return new_preset.id
+
+
+def refresh_preset_table(preset_manager, inputs):
+    futil.log("Refreshing preset table")
     table = inputs.itemById('presetTable')
     table.clear()
-    rowNumber = 0
     presets = preset_manager.presets
 
     for preset in presets:
         addRow(table, inputs, preset)
+    futil.log("Preset table refreshed")
 
-    if not lengthSaved and screwId:
-        textArea = "Save length of Screw ..."
-        inputs.itemById('textBox').text = textArea
 
-        preset_manager.update_preset(
-            screwId,
-            thread_length=screw.threadLength,
-            body_length=screw.bodyLength
-        )
+def save_screw_length(preset_manager, screwId, screw, inputs):
+    futil.log(f"Saving length for Screw ID: {screwId}")
+    update_text_area(inputs, "Save length of Screw ...")
 
-        table = inputs.itemById('presetTable')
-        preset = preset_manager.get_preset_by_id(screwId)
-        addRow(table, inputs, preset)
-        textArea = "Added new row for Screw ID: " + str(
-            screwId) + "\nThread Length: " + str(
-                screw.threadLength) + "\nBody Length: " + str(screw.bodyLength)
-        inputs.itemById('textBox').text = textArea
-        lengthSaved = True
+    preset_manager.update_preset(
+        screwId,
+        thread_length=screw.threadLength,
+        body_length=screw.bodyLength
+    )
+
+    table = inputs.itemById('presetTable')
+    preset = preset_manager.get_preset_by_id(screwId)
+    addRow(table, inputs, preset)
+    update_text_area(inputs, f"Added new row for Screw ID: {screwId}\nThread Length: {screw.threadLength}\nBody Length: {screw.bodyLength}")
+    futil.log(f"Added new row for Screw ID: {screwId}")
+
+
+def update_text_area(inputs, message):
+    futil.log(f"Updating text area with message: {message}")
+    textArea = inputs.itemById('textBox').text
+    textArea += f"\n{message}"
+    inputs.itemById('textBox').text = textArea
 
 # This event handler is called when the user changes anything in the command dialog
 # allowing you to modify values of other inputs based on that change.
